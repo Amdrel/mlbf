@@ -74,6 +74,59 @@ void destroy_bf_vm(bf_vm *vm)
 }
 
 /**
+ * Prevent buffer over-read after pointer increments.
+ */
+void bf_check_overread(bf_vm *vm)
+{
+    if (vm->pointer >= MEMORY_SIZE - 1) {
+        vm->pointer = 0;
+    }
+}
+
+/**
+ * Starts the execution loop to execute code on the passed virtual machine and
+ * returns once there is no more input (EOF).
+ */
+void bf_run(bf_vm *vm)
+{
+    int ch;        // Holder for opcodes being read from the brainfuck.
+    size_t pc = 0; // The address of the currently executing operation.
+
+    while ((ch = vm->src[pc]) != '\0') {
+        switch (ch) {
+        case '>':
+            vm->pointer++;
+            bf_check_overread(vm);
+            break;
+        case '<':
+            vm->pointer--;
+            bf_check_overread(vm);
+            break;
+        case '+':
+            vm->memory[vm->pointer]++;
+            break;
+        case '-':
+            vm->memory[vm->pointer]--;
+            break;
+        case '.':
+            putchar(vm->memory[vm->pointer]);
+            break;
+        case ',':
+            vm->memory[vm->pointer] = 0; // I don't believe in input.
+            break;
+        case '[':
+            break;
+        case ']':
+            break;
+        default:
+            break;
+        }
+
+        pc++; // Move to the next opcode.
+    }
+}
+
+/**
  * Reads a file and returns a string containing the contents. A size must be
  * specified which allows the caller to control allocation size.
  */
@@ -114,7 +167,8 @@ int main(void)
     bf_vm *vm = create_bf_vm(src);
     if (!vm) return 1;
 
-    printf("%s\n", vm->src);
+    // Start executing brainfuck in the virtual machine.
+    bf_run(vm);
 
     // Cleanup resources used by the virtual machine before quitting.
     destroy_bf_vm(vm);
