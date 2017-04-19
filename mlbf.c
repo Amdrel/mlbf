@@ -32,9 +32,10 @@
  * The virtual machine does not need to hold very much state. Brainfuck uses a
  * pointer that points to a place in memory which is statically allocated.
  */
-typedef struct bf_vm {
+typedef struct bf_vm_t {
+    size_t pc;
     size_t pointer;
-    uint8_t memory[MEMORY_SIZE];
+    int8_t memory[MEMORY_SIZE];
     char *src;
 } bf_vm;
 
@@ -81,6 +82,81 @@ void bf_check_overread(bf_vm *vm)
     if (vm->pointer >= MEMORY_SIZE - 1) {
         vm->pointer = 0;
     }
+    if (vm->pc >= MEMORY_SIZE - 1) {
+        vm->pc = 0;
+    }
+}
+
+/**
+ * Scans for the last "[" and sets the pc to the opcode after.
+ */
+void bf_goto_opening(bf_vm *vm)
+{
+    // Exit early if we are at the beginning of the tape (can't go back).
+    if (vm->pc == 0) return;
+
+    int ch;        // Current opcode being read from program memory.
+    int depth = 0; // Brackets need to match in brainfuck, no simple searches.
+    size_t i = vm->pc - 1;
+
+    while (1) {
+        ch = vm->src[i];
+
+        if (ch == ']') {
+            depth++;
+        } else if (ch == '[') {
+            if (depth <= 0) {
+                vm->pc = i;
+                break;
+            } else {
+                depth--;
+            }
+        }
+
+        // Give up if we reach the start of the tape without finding a valid
+        // matching bracket (prevent over-read).
+        if (i == 0) {
+            break;
+        }
+        i--;
+    }
+}
+
+/**
+ * Scans for the next "]" and sets the pc to the opcode after.
+ */
+void bf_goto_closing(bf_vm *vm)
+{
+    // Exit early if the current opcode is a null terminator. Code that follows
+    // this check assumes the next opcode exists.
+    if (vm->src[vm->pc] == '\0') return;
+
+    int ch;        // Current opcode being read from program memory.
+    int depth = 0; // Brackets need to match in brainfuck, no simple searches.
+    size_t i = vm->pc + 1;
+
+    while (1) {
+        ch = vm->src[i];
+
+        // Give up and set an arbitrary pc if we reach the end of the tape
+        // before finding a valid maching bracket (prevent over-read).
+        if (ch == '\0') {
+            vm->pc = 0;
+            break;
+        }
+
+        if (ch == '[') {
+            depth++;
+        } else if (ch == ']') {
+            if (depth <= 0) {
+                vm->pc = ++i;
+                break;
+            } else {
+                depth--;
+            }
+        }
+        i++;
+    }
 }
 
 /**
@@ -89,40 +165,54 @@ void bf_check_overread(bf_vm *vm)
  */
 void bf_run(bf_vm *vm)
 {
-    int ch;        // Holder for opcodes being read from the brainfuck.
-    size_t pc = 0; // The address of the currently executing operation.
+    int ch; // Holder for opcodes being read from the brainfuck.
 
-    while ((ch = vm->src[pc]) != '\0') {
+    while ((ch = vm->src[vm->pc]) != '\0') {
         switch (ch) {
         case '>':
             vm->pointer++;
-            bf_check_overread(vm);
+            vm->pc++;
             break;
         case '<':
             vm->pointer--;
-            bf_check_overread(vm);
+            vm->pc++;
             break;
         case '+':
             vm->memory[vm->pointer]++;
+            vm->pc++;
             break;
         case '-':
             vm->memory[vm->pointer]--;
+            vm->pc++;
             break;
         case '.':
             putchar(vm->memory[vm->pointer]);
+            vm->pc++;
             break;
         case ',':
             vm->memory[vm->pointer] = 0; // I don't believe in input.
+            vm->pc++;
             break;
         case '[':
+            if (!vm->memory[vm->pointer]) {
+                bf_goto_closing(vm);
+            } else {
+                vm->pc++;
+            }
             break;
         case ']':
+            if (vm->memory[vm->pointer]) {
+                bf_goto_opening(vm);
+            } else {
+                vm->pc++;
+            }
             break;
         default:
+            vm->pc++;
             break;
         }
 
-        pc++; // Move to the next opcode.
+        bf_check_overread(vm);
     }
 }
 

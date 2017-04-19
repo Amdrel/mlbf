@@ -1,4 +1,5 @@
 mlbf
 *.o
+*.b
 .ycm_extra_conf.py
 __pycache__/
