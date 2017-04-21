@@ -3,7 +3,7 @@ CFLAGS=-Wall -g -std=c11
 LDFLAGS=
 
 PROGS=mlbf
-MLBF_OBJS=mlbf.o
+MLBF_OBJS=mlbf.o interpreter.o
 
 all: $(PROGS)
 

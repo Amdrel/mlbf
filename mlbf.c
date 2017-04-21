@@ -18,192 +18,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "interpreter.h"
+
 // Allocation size used when reading brainfuck from stdin.
 #define STDIN_ALLOC_SIZE 64
-
-// Amount of memory allocated by the brainfuck vm.
-#define MEMORY_SIZE 30000
-
-/**
- * The virtual machine does not need to hold very much state. Brainfuck uses a
- * pointer that points to a place in memory which is statically allocated.
- */
-typedef struct bf_vm_t {
-    size_t pc;
-    size_t pointer;
-    int8_t memory[MEMORY_SIZE];
-    char *src;
-} bf_vm;
-
-/**
- * Initializes a brainfuck virtual machine. This function requires that
- * brainfuck source code be passed which will be interpreted later. The src
- * parameter is owned and managed by the virtual machine and should not be used
- * directly.
- */
-bf_vm *create_bf_vm(char *src)
-{
-    bf_vm *vm = calloc(1, sizeof(bf_vm));
-    if (!vm) goto fail;
-
-    if (src) {
-        vm->src = src;
-    } else {
-        goto fail;
-    }
-
-    return vm;
-
-    fail:
-        free(vm);
-        free(src);
-        return NULL;
-}
-
-/**
- * Frees resources contained in a brainfuck virtual machine such as the main
- * memory and brainfuck source code.
- */
-void destroy_bf_vm(bf_vm *vm)
-{
-    free(vm->src);
-    free(vm);
-}
-
-/**
- * Prevent buffer over-read after pointer increments.
- */
-void bf_check_overread(bf_vm *vm)
-{
-    if (vm->pointer >= MEMORY_SIZE - 1) {
-        vm->pointer = 0;
-    }
-    if (vm->pc >= MEMORY_SIZE - 1) {
-        vm->pc = 0;
-    }
-}
-
-/**
- * Scans for the last matching "[" and sets the pc to the opcode after. This is
- * used for conditionals and loops in brainfuck.
- */
-void bf_goto_opening(bf_vm *vm)
-{
-    // Exit early if we are at the beginning of the tape (can't go back).
-    if (vm->pc == 0) return;
-
-    int ch;        // Current opcode being read from program memory.
-    int depth = 0; // Brackets need to match in brainfuck, no simple searches.
-    size_t i = vm->pc - 1;
-
-    while (1) {
-        ch = vm->src[i];
-        if (ch == ']') {
-            depth++;
-        } else if (ch == '[') {
-            if (depth == 0) {
-                vm->pc = i;
-                break;
-            } else {
-                depth--;
-            }
-        }
-
-        if (i == 0) break; // Exit if at tape start to avoid overflow.
-        i--;
-    }
-}
-
-/**
- * Scans for the next matching "]" and sets the pc to the opcode after. This is
- * used for conditionals and loops in brainfuck.
- */
-void bf_goto_closing(bf_vm *vm)
-{
-    int ch;        // Current opcode being read from program memory.
-    int depth = 0; // Brackets need to match in brainfuck, no simple searches.
-    size_t i = vm->pc + 1;
-
-    while (1) {
-        ch = vm->src[i];
-        if (ch == '\0') {
-            vm->pc = i;
-            break;
-        }
-        if (ch == '[') {
-            depth++;
-        } else if (ch == ']') {
-            if (depth == 0) {
-                vm->pc = ++i;
-                break;
-            } else {
-                depth--;
-            }
-        }
-        i++;
-    }
-}
-
-/**
- * Starts the execution loop to execute code on the passed virtual machine and
- * returns once there is no more input (EOF).
- */
-void bf_run(bf_vm *vm)
-{
-    int ch; // Holder for opcodes being read from the brainfuck.
-
-    while ((ch = vm->src[vm->pc]) != '\0') {
-        switch (ch) {
-        case '>':
-            vm->pointer++;
-            vm->pc++;
-            break;
-        case '<':
-            vm->pointer--;
-            vm->pc++;
-            break;
-        case '+':
-            vm->memory[vm->pointer]++;
-            vm->pc++;
-            break;
-        case '-':
-            vm->memory[vm->pointer]--;
-            vm->pc++;
-            break;
-        case '.':
-            putchar(vm->memory[vm->pointer]);
-            vm->pc++;
-            break;
-        case ',':
-            vm->memory[vm->pointer] = 0; // I don't believe in input.
-            vm->pc++;
-            break;
-        case '[':
-            if (!vm->memory[vm->pointer]) {
-                bf_goto_closing(vm);
-            } else {
-                vm->pc++;
-            }
-            break;
-        case ']':
-            if (vm->memory[vm->pointer]) {
-                bf_goto_opening(vm);
-            } else {
-                vm->pc++;
-            }
-            break;
-        default:
-            vm->pc++;
-            break;
-        }
-
-        bf_check_overread(vm);
-    }
-}
 
 /**
  * Reads a file and returns a string containing the contents. A size must be
@@ -243,14 +64,14 @@ int main(void)
 {
     // Read brainfuck source code from stdin and initialize the virtual machine.
     char *src = read_file(stdin, STDIN_ALLOC_SIZE);
-    bf_vm *vm = create_bf_vm(src);
+    bf_vm *vm = bf_create_vm(src);
     if (!vm) return 1;
 
     // Start executing brainfuck in the virtual machine.
     bf_run(vm);
 
     // Cleanup resources used by the virtual machine before quitting.
-    destroy_bf_vm(vm);
+    bf_destroy_vm(vm);
 
     return 0;
 }
