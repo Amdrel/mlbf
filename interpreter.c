@@ -22,16 +22,19 @@
 
 #include "interpreter.h"
 
-bf_vm *bf_create_vm(char *src)
+bf_vm *bf_create_vm(char *src, uint32_t flags)
 {
     bf_vm *vm = calloc(1, sizeof(bf_vm));
-    if (!vm) goto fail;
+    if (!vm) goto fail; // Failed allocation, cannot continue.
 
     if (src) {
         vm->src = src;
     } else {
         goto fail;
     }
+    vm->pc = 0;
+    vm->pointer = 0;
+    vm->flags = flags;
 
     return vm;
 
@@ -49,11 +52,8 @@ void bf_destroy_vm(bf_vm *vm)
 
 void bf_check_overread(bf_vm *vm)
 {
-    if (vm->pointer >= MEMORY_SIZE - 1) {
+    if (vm->pointer >= BF_MEMORY_SIZE - 1) {
         vm->pointer = 0;
-    }
-    if (vm->pc >= MEMORY_SIZE - 1) {
-        vm->pc = 0;
     }
 }
 
@@ -110,10 +110,12 @@ void bf_goto_closing(bf_vm *vm)
     }
 }
 
-int bf_run(bf_vm *vm)
+bf_result bf_run(bf_vm *vm)
 {
     int ch; // Holder for opcodes being read from the brainfuck.
 
+    // Iterate over the brainfuck source code loaded into the virtual machine
+    // and execute it until a NULL terminator is reached (end of tape).
     while ((ch = vm->src[vm->pc]) != '\0') {
         switch (ch) {
         case '>':
@@ -159,8 +161,15 @@ int bf_run(bf_vm *vm)
             break;
         }
 
+        // The pointer is reset to 0 in the event that the last operation cause
+        // it to overflow off the tape.
         bf_check_overread(vm);
     }
 
-    return 0; // TODO: Return operation count.
+    bf_result result = {
+        .result = 0,
+        .opcount = 0,
+        .output = NULL,
+    };
+    return result;
 }

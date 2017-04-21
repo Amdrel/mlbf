@@ -23,7 +23,7 @@
 
 #include "interpreter.h"
 
-// Allocation size used when reading brainfuck from stdin.
+/** Allocation size used when reading brainfuck from stdin. */
 #define STDIN_ALLOC_SIZE 64
 
 /**
@@ -64,7 +64,7 @@ int main(void)
 {
     // Read brainfuck source code from stdin and initialize the virtual machine.
     char *src = read_file(stdin, STDIN_ALLOC_SIZE);
-    bf_vm *vm = bf_create_vm(src);
+    bf_vm *vm = bf_create_vm(src, 0);
     if (!vm) return 1;
 
     // Start executing brainfuck in the virtual machine.
