@@ -49,8 +49,7 @@ typedef struct bf_vm {
  */
 typedef struct bf_result {
     int result;
-    int opcount;
-    char *output;
+    unsigned long long opcount;
 } bf_result;
 
 /**

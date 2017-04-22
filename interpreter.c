@@ -113,6 +113,7 @@ void bf_goto_closing(bf_vm *vm)
 bf_result bf_run(bf_vm *vm)
 {
     int ch; // Holder for opcodes being read from the brainfuck.
+    unsigned long long opcount = 0; // Number of operations executed.
 
     // Iterate over the brainfuck source code loaded into the virtual machine
     // and execute it until a NULL terminator is reached (end of tape).
@@ -161,6 +162,8 @@ bf_result bf_run(bf_vm *vm)
             break;
         }
 
+        opcount++;
+
         // The pointer is reset to 0 in the event that the last operation cause
         // it to overflow off the tape.
         bf_check_overread(vm);
@@ -168,8 +171,7 @@ bf_result bf_run(bf_vm *vm)
 
     bf_result result = {
         .result = 0,
-        .opcount = 0,
-        .output = NULL,
+        .opcount = opcount,
     };
     return result;
 }
