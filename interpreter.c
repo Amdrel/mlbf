@@ -55,7 +55,7 @@ void bf_destroy_vm(bf_vm *vm)
 
 void bf_check_overread(bf_vm *vm)
 {
-    if (vm->pointer >= BF_MEMORY_SIZE - 1) {
+    if (vm->pointer >= BF_MEMORY_SIZE) {
         vm->pointer = 0;
     }
 }
@@ -84,8 +84,12 @@ void bf_goto_opening(bf_vm *vm)
             }
         }
 
+        // Exit if at tape start to avoid issues. A null terminator is replaced
+        // in the source to get the interpreter to stop on the next cycle.
         if (i == 0) {
-            break; // Exit if at tape start to avoid overflow.
+            vm->src[i] = '\0';
+            vm->pc = i;
+            break;
         }
         i--;
     }
@@ -128,11 +132,15 @@ bf_result bf_run(bf_vm *vm)
     while ((ch = vm->src[vm->pc]) != '\0') {
         switch (ch) {
         case '>':
-            vm->pointer++;
+            if (vm->pointer < BF_MEMORY_SIZE) {
+                vm->pointer++;
+            }
             vm->pc++;
             break;
         case '<':
-            vm->pointer--;
+            if (vm->pointer > 0) {
+                vm->pointer--;
+            }
             vm->pc++;
             break;
         case '+':
@@ -148,11 +156,10 @@ bf_result bf_run(bf_vm *vm)
             vm->pc++;
             break;
         case ',':
-            if ((input = getchar()) == EOF) {
-                input = 0;
+            if ((input = getchar()) != EOF) {
+                vm->memory[vm->pointer] = input;
             }
 
-            vm->memory[vm->pointer] = input; // I don't believe in input.
             vm->pc++;
             break;
         case '[':

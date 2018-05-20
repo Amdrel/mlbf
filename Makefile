@@ -3,11 +3,13 @@ CFLAGS=-Wall -g -std=c11
 LDFLAGS=
 
 PROGS=mlbf
-MLBF_OBJS=mlbf.o interpreter.o
+SRCS=$(wildcard *.c)
+HEADERS=$(wildcard *.h)
+OBJS=$(patsubst %.c,%.o,$(wildcard *.c))
 
 all: $(PROGS)
 
-mlbf: $(MLBF_OBJS)
+mlbf: $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^
 
 %.o: %.c
@@ -17,3 +19,11 @@ mlbf: $(MLBF_OBJS)
 
 clean:
 	rm *.o $(PROGS)
+
+depend: .depend
+
+.depend: $(HEADERS)
+	rm -f ./.depend
+	$(CC) $(CFLAGS) -MM $^ > ./.depend;
+
+include .depend
