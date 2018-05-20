@@ -7,8 +7,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -25,12 +25,14 @@
 bf_vm *bf_create_vm(char *src, uint32_t flags)
 {
     bf_vm *vm = calloc(1, sizeof(bf_vm));
-    if (!vm) goto fail; // Failed allocation, cannot continue.
+    if (!vm) {
+        goto error1; // Failed allocation, cannot continue.
+    }
 
     if (src) {
         vm->src = src;
     } else {
-        goto fail;
+        goto error2;
     }
     vm->pc = 0;
     vm->pointer = 0;
@@ -38,10 +40,11 @@ bf_vm *bf_create_vm(char *src, uint32_t flags)
 
     return vm;
 
-    fail:
-        free(vm);
-        free(src);
-        return NULL;
+error2:
+    free(vm);
+error1:
+    free(src);
+    return NULL;
 }
 
 void bf_destroy_vm(bf_vm *vm)
@@ -60,9 +63,11 @@ void bf_check_overread(bf_vm *vm)
 void bf_goto_opening(bf_vm *vm)
 {
     // Exit early if we are at the beginning of the tape (can't go back).
-    if (vm->pc == 0) return;
+    if (vm->pc == 0) {
+        return;
+    }
 
-    int ch;        // Current opcode being read from program memory.
+    int ch; // Current opcode being read from program memory.
     int depth = 0; // Brackets need to match in brainfuck, no simple searches.
     size_t i = vm->pc - 1;
 
@@ -79,14 +84,16 @@ void bf_goto_opening(bf_vm *vm)
             }
         }
 
-        if (i == 0) break; // Exit if at tape start to avoid overflow.
+        if (i == 0) {
+            break; // Exit if at tape start to avoid overflow.
+        }
         i--;
     }
 }
 
 void bf_goto_closing(bf_vm *vm)
 {
-    int ch;        // Current opcode being read from program memory.
+    int ch; // Current opcode being read from program memory.
     int depth = 0; // Brackets need to match in brainfuck, no simple searches.
     size_t i = vm->pc + 1;
 
@@ -113,6 +120,7 @@ void bf_goto_closing(bf_vm *vm)
 bf_result bf_run(bf_vm *vm)
 {
     int ch; // Holder for opcodes being read from the brainfuck.
+    int input; // Buffered input from stdin.
     unsigned long long opcount = 0; // Number of operations executed.
 
     // Iterate over the brainfuck source code loaded into the virtual machine
@@ -140,7 +148,11 @@ bf_result bf_run(bf_vm *vm)
             vm->pc++;
             break;
         case ',':
-            vm->memory[vm->pointer] = 0; // I don't believe in input.
+            if ((input = getchar()) == EOF) {
+                input = 0;
+            }
+
+            vm->memory[vm->pointer] = input; // I don't believe in input.
             vm->pc++;
             break;
         case '[':

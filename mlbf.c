@@ -7,8 +7,8 @@
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
 //
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -32,22 +32,26 @@
  */
 char *read_file(FILE *fp, size_t size)
 {
-    char *str;      // Will contain file contents when the function completes.
-    int ch;         // Holder for last character read from the file.
+    char *str; // Will contain file contents when the function completes.
+    int ch; // Holder for last character read from the file.
     size_t len = 0; // Current length of the string (not allocated size).
 
     str = calloc(1, sizeof(char) * size);
-    if (!str) goto fail;
+    if (!str) {
+        goto error1;
+    }
 
     // Read bytes from the file copying them into the string. The string will
     // be dynamically reallocated as needed.
-    while ((ch = getc(fp)) != EOF) {
+    while ((ch = getc(fp)) != EOF && ch != '|') {
         str[len++] = ch;
 
         if (len >= size) {
             size += STDIN_ALLOC_SIZE;
             char *nstr = realloc(str, sizeof(char) * size);
-            if (!nstr) goto fail; // Failed realloc, cleanup.
+            if (!nstr) {
+                goto error1; // Failed realloc, cleanup.
+            }
             str = nstr;
         }
     }
@@ -55,7 +59,7 @@ char *read_file(FILE *fp, size_t size)
 
     return str;
 
-fail:
+error1:
     free(str);
     return NULL;
 }
@@ -65,7 +69,9 @@ int main(void)
     // Read brainfuck source code from stdin and initialize the virtual machine.
     char *src = read_file(stdin, STDIN_ALLOC_SIZE);
     bf_vm *vm = bf_create_vm(src, 0);
-    if (!vm) return 1;
+    if (!vm) {
+        return 1;
+    }
 
     // Start executing brainfuck in the virtual machine.
     bf_run(vm);
