@@ -25,6 +25,7 @@
 
 /** Allocation size used when reading brainfuck from stdin. */
 #define STDIN_ALLOC_SIZE 64
+#define FILE_ALLOC_SIZE 64
 
 /**
  * Reads a file and returns a string containing the contents. A size must be
@@ -64,19 +65,47 @@ error1:
     return NULL;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    FILE *fp;
+    size_t alloc_size;
+    char *src;
+
+    // Read the source code from a file if an argument is specified, otherwise
+    // read the source code from stdin. Both options are available since meson
+    // tests do not allow specifying input to stdin.
+    if (argc >= 2) {
+        fp = fopen(argv[1], "r");
+        if (fp == NULL) {
+            fprintf(stderr, "Unable to open file '%s'.\n", argv[1]);
+            return 1;
+        }
+        alloc_size = FILE_ALLOC_SIZE;
+    } else {
+        fp = stdin;
+        alloc_size = STDIN_ALLOC_SIZE;
+    }
+
+    src = read_file(fp, alloc_size);
+    if (src == NULL) {
+        fprintf(stderr, "Unable to source code.\n");
+        return 1;
+    }
+    if (fp != stdin) {
+        fclose(fp);
+    }
+
     // Read brainfuck source code from stdin and initialize the virtual machine.
-    char *src = read_file(stdin, STDIN_ALLOC_SIZE);
+    // TODO: Add a compilation before this call once the bytecode is defined.
     bf_vm *vm = bf_create_vm(src, 0);
     if (!vm) {
         return 1;
     }
 
-    // Start executing brainfuck in the virtual machine.
+    // Start executing brainfuck in the virtual machine. Cleanup resources used
+    // by the virtual machine before quitting and after bf_run returns (program
+    // finished running).
     bf_run(vm);
-
-    // Cleanup resources used by the virtual machine before quitting.
     bf_destroy_vm(vm);
 
     return 0;

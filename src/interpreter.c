@@ -53,13 +53,6 @@ void bf_destroy_vm(bf_vm *vm)
     free(vm);
 }
 
-void bf_check_overread(bf_vm *vm)
-{
-    if (vm->pointer >= BF_MEMORY_SIZE) {
-        vm->pointer = 0;
-    }
-}
-
 void bf_goto_opening(bf_vm *vm)
 {
     // Exit early if we are at the beginning of the tape (can't go back).
@@ -125,7 +118,6 @@ bf_result bf_run(bf_vm *vm)
 {
     int ch; // Holder for opcodes being read from the brainfuck.
     int input; // Buffered input from stdin.
-    unsigned long long opcount = 0; // Number of operations executed.
 
     // Iterate over the brainfuck source code loaded into the virtual machine
     // and execute it until a NULL terminator is reached (end of tape).
@@ -180,17 +172,10 @@ bf_result bf_run(bf_vm *vm)
             vm->pc++;
             break;
         }
-
-        opcount++;
-
-        // The pointer is reset to 0 in the event that the last operation cause
-        // it to overflow off the tape.
-        bf_check_overread(vm);
     }
 
     bf_result result = {
-        .result = 0,
-        .opcount = opcount,
+        .result = BF_RESULT_OK,
     };
     return result;
 }

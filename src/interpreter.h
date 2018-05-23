@@ -30,6 +30,9 @@
 /** The interpreter will output to a buffer rather than stdout if set. */
 #define BF_OUTPUT_BUFFER 0x1
 
+/** Return codes sent when the vm stops executing. */
+#define BF_RESULT_OK 0
+
 /**
  * The virtual machine does not need to hold very much state. Brainfuck uses a
  * pointer that points to a place in memory which is statically allocated.
@@ -49,7 +52,6 @@ typedef struct bf_vm {
  */
 typedef struct bf_result {
     int result;
-    unsigned long long opcount;
 } bf_result;
 
 /**
@@ -65,11 +67,6 @@ bf_vm *bf_create_vm(char *src, uint32_t flags);
  * memory and brainfuck source code.
  */
 void bf_destroy_vm(bf_vm *vm);
-
-/**
- * Prevent buffer over-read after pointer increments.
- */
-void bf_check_overread(bf_vm *vm);
 
 /**
  * Scans for the last matching "[" and sets the pc to the opcode after. This is
