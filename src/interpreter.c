@@ -55,14 +55,14 @@ void bf_destroy_vm(bf_vm *vm)
 
 void bf_goto_opening(bf_vm *vm)
 {
+    int ch; // Current opcode being read from program memory.
+    int depth = 0; // Brackets need to match in brainfuck, no simple searches.
+    size_t i = vm->pc - 1;
+
     // Exit early if we are at the beginning of the tape (can't go back).
     if (vm->pc == 0) {
         return;
     }
-
-    int ch; // Current opcode being read from program memory.
-    int depth = 0; // Brackets need to match in brainfuck, no simple searches.
-    size_t i = vm->pc - 1;
 
     while (1) {
         ch = vm->src[i];
