@@ -34,7 +34,7 @@ def test_mlbf():
     if not mlbf_exists():
         raise RuntimeError("mlbf hasn't been compiled yet.")
 
-    scripts = map(lambda x: x, glob.glob(os.path.join(MLBF_TEST_DIR, '*.b')))
+    scripts = glob.glob(os.path.join(MLBF_TEST_DIR, '*.b'))
 
     for script in scripts:
         test_script(*generate_script_names(script))
