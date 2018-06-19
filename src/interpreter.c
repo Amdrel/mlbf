@@ -19,12 +19,13 @@
 // SOFTWARE.
 
 #include <stdio.h>
+#include <string.h>
 
 #include "interpreter.h"
 
-bf_vm *bf_create_vm(char *src, uint32_t flags)
+struct bf_vm *bf_vm_create(char *src, uint32_t flags)
 {
-    bf_vm *vm = calloc(1, sizeof(bf_vm));
+    struct bf_vm *vm = calloc(1, sizeof(struct bf_vm));
     if (!vm) {
         goto error1; // Failed allocation, cannot continue.
     }
@@ -44,16 +45,17 @@ error2:
     free(vm);
 error1:
     free(src);
+
     return NULL;
 }
 
-void bf_destroy_vm(bf_vm *vm)
+void bf_vm_destroy(struct bf_vm *vm)
 {
     free(vm->src);
     free(vm);
 }
 
-void bf_goto_opening(bf_vm *vm)
+void bf_vm_goto_opening(struct bf_vm *vm)
 {
     int ch; // Current opcode being read from program memory.
     int depth = 0; // Brackets need to match in brainfuck, no simple searches.
@@ -88,7 +90,7 @@ void bf_goto_opening(bf_vm *vm)
     }
 }
 
-void bf_goto_closing(bf_vm *vm)
+void bf_vm_goto_closing(struct bf_vm *vm)
 {
     int ch; // Current opcode being read from program memory.
     int depth = 0; // Brackets need to match in brainfuck, no simple searches.
@@ -114,7 +116,7 @@ void bf_goto_closing(bf_vm *vm)
     }
 }
 
-bf_result bf_run(bf_vm *vm)
+struct bf_result bf_vm_run(struct bf_vm *vm)
 {
     int ch; // Holder for opcodes being read from the brainfuck.
     int input; // Buffered input from stdin.
@@ -156,14 +158,14 @@ bf_result bf_run(bf_vm *vm)
             break;
         case '[':
             if (!vm->memory[vm->pointer]) {
-                bf_goto_closing(vm);
+                bf_vm_goto_closing(vm);
             } else {
                 vm->pc++;
             }
             break;
         case ']':
             if (vm->memory[vm->pointer]) {
-                bf_goto_opening(vm);
+                bf_vm_goto_opening(vm);
             } else {
                 vm->pc++;
             }
@@ -174,8 +176,9 @@ bf_result bf_run(bf_vm *vm)
         }
     }
 
-    bf_result result = {
-        .result = BF_RESULT_OK,
+    struct bf_result result = {
+        .code = BF_RESULT_SUCCESS,
+        .message = NULL,
     };
     return result;
 }

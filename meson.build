@@ -6,6 +6,7 @@ incdir = include_directories('src')
 sources = [
   'src/mlbf.c',
   'src/interpreter.c',
+  'src/program.c',
 ]
 
 dependencies = []

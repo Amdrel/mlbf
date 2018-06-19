@@ -97,16 +97,16 @@ int main(int argc, char *argv[])
 
     // Read brainfuck source code from stdin and initialize the virtual machine.
     // TODO: Add a compilation before this call once the bytecode is defined.
-    bf_vm *vm = bf_create_vm(src, 0);
+    struct bf_vm *vm = bf_vm_create(src, 0);
     if (!vm) {
         return 1;
     }
 
     // Start executing brainfuck in the virtual machine. Cleanup resources used
-    // by the virtual machine before quitting and after bf_run returns (program
+    // by the virtual machine before quitting and after bf_vm_run returns (program
     // finished running).
-    bf_run(vm);
-    bf_destroy_vm(vm);
+    bf_vm_run(vm);
+    bf_vm_destroy(vm);
 
     return 0;
 }

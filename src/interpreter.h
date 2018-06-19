@@ -24,35 +24,25 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "errors.h"
+
 /** Amount of memory allocated by the brainfuck vm. */
-#define BF_MEMORY_SIZE 30000
+#define BF_MEMORY_SIZE 65536
 
 /** The interpreter will output to a buffer rather than stdout if set. */
 #define BF_OUTPUT_BUFFER 0x1
-
-/** Return codes sent when the vm stops executing. */
-#define BF_RESULT_OK 0
 
 /**
  * The virtual machine does not need to hold very much state. Brainfuck uses a
  * pointer that points to a place in memory which is statically allocated.
  */
-typedef struct bf_vm {
-    uint32_t flags;
+struct bf_vm {
     size_t pc;
     size_t pointer;
-    int8_t memory[BF_MEMORY_SIZE];
     char *src;
-} bf_vm;
-
-/**
- * This structure is used when the virtual machine finishes executing. A result
- * code, operation count, and output string are provided to the caller. Output
- * will only be set if specified in the flags.
- */
-typedef struct bf_result {
-    int result;
-} bf_result;
+    uint32_t flags;
+    int8_t memory[BF_MEMORY_SIZE];
+};
 
 /**
  * Initializes a brainfuck virtual machine. This function requires that
@@ -60,30 +50,30 @@ typedef struct bf_result {
  * parameter is owned and managed by the virtual machine and should not be used
  * directly.
  */
-bf_vm *bf_create_vm(char *src, uint32_t flags);
+struct bf_vm *bf_vm_create(char *src, uint32_t flags);
 
 /**
  * Frees resources contained in a brainfuck virtual machine such as the main
  * memory and brainfuck source code.
  */
-void bf_destroy_vm(bf_vm *vm);
+void bf_vm_destroy(struct bf_vm *vm);
 
 /**
  * Scans for the last matching "[" and sets the pc to the opcode after. This is
  * used for conditionals and loops in brainfuck.
  */
-void bf_goto_opening(bf_vm *vm);
+void bf_vm_goto_opening(struct bf_vm *vm);
 
 /**
  * Scans for the next matching "]" and sets the pc to the opcode after. This is
  * used for conditionals and loops in brainfuck.
  */
-void bf_goto_closing(bf_vm *vm);
+void bf_vm_goto_closing(struct bf_vm *vm);
 
 /**
  * Starts the execution loop to execute code on the passed virtual machine and
  * returns once there is no more input (EOF).
  */
-bf_result bf_run(bf_vm *vm);
+struct bf_result bf_vm_run(struct bf_vm *vm);
 
 #endif
