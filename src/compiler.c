@@ -152,7 +152,7 @@ int bf_find_closing_brace(int pos, char *src)
     int result = -1;
 
     // Failsafe in-case the position is at the end for some reason.
-    if (src[i] - 1 == '\0') {
+    if (src[pos] == '\0') {
         goto error1;
     }
 
