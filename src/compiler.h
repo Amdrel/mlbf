@@ -21,6 +21,8 @@
 #ifndef BF_COMPILER_H
 #define BF_COMPILER_H
 
+#include <stdbool.h>
+
 /**
  * Generates a compiled brainfuck progam from a brainfuck source string. The
  * string that's passed in doesn't have ownership transferred.
@@ -48,5 +50,10 @@ int bf_compile_find_closing_brace(int pos, char *src);
  * A negative return value indicates a matching brace wasn't found.
  */
 int bf_compile_find_opening_brace(int pos, char *src);
+
+/**
+ * Returns true if the character passed is a valid brainfuck instruction.
+ */
+bool bf_compile_is_valid_character(char ch);
 
 #endif

@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 
     // Read brainfuck source code from stdin and initialize the virtual machine.
     // TODO: Add a compilation before this call once the bytecode is defined.
-    struct bf_vm *vm = bf_vm_create(src, 0);
+    struct bf_vm *vm = bf_vm_create(program, 0);
     if (!vm) {
         fprintf(stderr, "Unable to initialize vm.\n");
         return 1;

@@ -49,6 +49,7 @@ struct bf_program *bf_compile_unoptimized_pass(struct bf_program *program, char 
 {
     char ch;
     int i = 0;
+    int offset = 0;
     int address;
 
     while ((ch = src[i]) != '\0') {
@@ -98,36 +99,43 @@ struct bf_program *bf_compile_unoptimized_pass(struct bf_program *program, char 
         case '[':
             address = bf_compile_find_closing_brace(i, src);
             if (address < 0) {
-                fprintf(stderr, "badness1\n");
                 goto error1;
             }
 
             bf_program_append(program,
                 (struct bf_instruction){
                     .opcode = BF_INS_BRANCH_Z,
-                    .argument = address + 1,
+                    .argument = address + 1 - offset,
                 });
 
             break;
         case ']':
             address = bf_compile_find_opening_brace(i, src);
             if (address < 0) {
-                fprintf(stderr, "badness2\n");
                 goto error1;
             }
 
             bf_program_append(program,
                 (struct bf_instruction){
                     .opcode = BF_INS_BRANCH_NZ,
-                    .argument = address + 1,
+                    .argument = address + 1 - offset,
                 });
             break;
         default:
+            offset++;
             break;
         }
 
         i++;
     }
+
+    // Ensure there's a halt at the end so the interpreter stops when execution
+    // reaches the end of the program.
+    bf_program_append(program,
+        (struct bf_instruction){
+            .opcode = BF_INS_HALT,
+            .argument = 0,
+        });
 
     return program;
 
@@ -140,6 +148,7 @@ int bf_compile_find_closing_brace(int pos, char *src)
     char ch;
     int i = pos + 1;
     int depth = 0;
+    int offset = 0;
     int result = -1;
 
     // Failsafe in-case the position is at the end for some reason.
@@ -148,6 +157,12 @@ int bf_compile_find_closing_brace(int pos, char *src)
     }
 
     while ((ch = src[i]) != '\0') {
+        if (!bf_compile_is_valid_character(ch)) {
+            offset--;
+            i++;
+            continue;
+        }
+
         if (ch == '[') {
             depth++;
         } else if (ch == ']') {
@@ -163,7 +178,7 @@ int bf_compile_find_closing_brace(int pos, char *src)
     }
 
 error1:
-    return result;
+    return result + offset;
 }
 
 int bf_compile_find_opening_brace(int pos, char *src)
@@ -171,10 +186,17 @@ int bf_compile_find_opening_brace(int pos, char *src)
     char ch;
     int i = pos - 1;
     int depth = 0;
+    int offset = 0;
     int result = -1;
 
     while (i >= 0) {
         ch = src[i];
+
+        if (!bf_compile_is_valid_character(ch)) {
+            offset++;
+            i--;
+            continue;
+        }
 
         if (ch == ']') {
             depth++;
@@ -190,5 +212,29 @@ int bf_compile_find_opening_brace(int pos, char *src)
         i--;
     }
 
-    return result;
+    return result + offset;
+}
+
+bool bf_compile_is_valid_character(char ch)
+{
+    switch (ch) {
+    case '>':
+        return true;
+    case '<':
+        return true;
+    case '+':
+        return true;
+    case '-':
+        return true;
+    case '.':
+        return true;
+    case ',':
+        return true;
+    case '[':
+        return true;
+    case ']':
+        return true;
+    default:
+        return false;
+    }
 }

@@ -49,7 +49,7 @@ enum bf_opcode {
  * Contains an opcode and an optional argument paired with the instruction.
  * This argument is almost always an address or handle.
  */
-struct bf_instruction {
+struct __attribute__ ((aligned)) bf_instruction {
     enum bf_opcode opcode;
     uint32_t argument;
 };

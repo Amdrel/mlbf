@@ -23,15 +23,15 @@
 
 #include "interpreter.h"
 
-struct bf_vm *bf_vm_create(char *src, uint32_t vm_flags)
+struct bf_vm *bf_vm_create(struct bf_program *program, uint32_t vm_flags)
 {
     struct bf_vm *vm = calloc(1, sizeof(struct bf_vm));
     if (!vm) {
         goto error1; // Failed allocation, cannot continue.
     }
 
-    if (src) {
-        vm->src = src;
+    if (program && program->size > 0) {
+        vm->program = program;
     } else {
         goto error2;
     }
@@ -44,141 +44,112 @@ struct bf_vm *bf_vm_create(char *src, uint32_t vm_flags)
 error2:
     free(vm);
 error1:
-    free(src);
+    bf_program_destroy(program);
 
     return NULL;
 }
 
 void bf_vm_destroy(struct bf_vm *vm)
 {
-    free(vm->src);
+    bf_program_destroy(vm->program);
     free(vm);
-}
-
-void bf_vm_goto_opening(struct bf_vm *vm)
-{
-    int ch; // Current opcode being read from program memory.
-    int depth = 0; // Brackets need to match in brainfuck, no simple searches.
-    size_t i = vm->pc - 1;
-
-    // Exit early if we are at the beginning of the tape (can't go back).
-    if (vm->pc == 0) {
-        return;
-    }
-
-    while (1) {
-        ch = vm->src[i];
-        if (ch == ']') {
-            depth++;
-        } else if (ch == '[') {
-            if (depth == 0) {
-                vm->pc = i;
-                break;
-            } else {
-                depth--;
-            }
-        }
-
-        // Exit if at tape start to avoid issues. A null terminator is replaced
-        // in the source to get the interpreter to stop on the next cycle.
-        if (i == 0) {
-            vm->src[i] = '\0';
-            vm->pc = i;
-            break;
-        }
-        i--;
-    }
-}
-
-void bf_vm_goto_closing(struct bf_vm *vm)
-{
-    int ch; // Current opcode being read from program memory.
-    int depth = 0; // Brackets need to match in brainfuck, no simple searches.
-    size_t i = vm->pc + 1;
-
-    while (1) {
-        ch = vm->src[i];
-        if (ch == '\0') {
-            vm->pc = i;
-            break;
-        }
-        if (ch == '[') {
-            depth++;
-        } else if (ch == ']') {
-            if (depth == 0) {
-                vm->pc = ++i;
-                break;
-            } else {
-                depth--;
-            }
-        }
-        i++;
-    }
 }
 
 struct bf_result bf_vm_run(struct bf_vm *vm)
 {
-    int ch; // Holder for opcodes being read from the brainfuck.
+    struct bf_instruction *instr; // Owned and managed by vm.
     int input; // Buffered input from stdin.
+    int pointer_holder;
 
-    // Iterate over the brainfuck source code loaded into the virtual machine
-    // and execute it until a NULL terminator is reached (end of tape).
-    while ((ch = vm->src[vm->pc]) != '\0') {
-        switch (ch) {
-        case '>':
+    for (;;) {
+        instr = &vm->program->ir[vm->pc];
+
+        switch (instr->opcode) {
+        case BF_INS_NOP:
+            vm->pc++;
+            break;
+        case BF_INS_IN:
+            if ((input = getchar()) != EOF) {
+                vm->memory[vm->pointer] = input;
+            }
+            vm->pc++;
+            break;
+        case BF_INS_OUT:
+            putchar(vm->memory[vm->pointer]);
+            vm->pc++;
+            break;
+        case BF_INS_INC_V:
+            vm->memory[vm->pointer]++;
+            vm->pc++;
+            break;
+        case BF_INS_DEC_V:
+            vm->memory[vm->pointer]--;
+            vm->pc++;
+            break;
+        case BF_INS_ADD_V:
+            vm->memory[vm->pointer] += instr->argument;
+            vm->pc++;
+            break;
+        case BF_INS_SUB_V:
+            vm->memory[vm->pointer] -= instr->argument;
+            vm->pc++;
+            break;
+        case BF_INS_INC_P:
+            // Bounds check to prevent buffer over-reads.
             if (vm->pointer < BF_MEMORY_SIZE) {
                 vm->pointer++;
             }
             vm->pc++;
             break;
-        case '<':
+        case BF_INS_DEC_P:
+            // Bounds check to prevent buffer under-reads.
             if (vm->pointer > 0) {
                 vm->pointer--;
             }
             vm->pc++;
             break;
-        case '+':
-            vm->memory[vm->pointer]++;
-            vm->pc++;
-            break;
-        case '-':
-            vm->memory[vm->pointer]--;
-            vm->pc++;
-            break;
-        case '.':
-            putchar(vm->memory[vm->pointer]);
-            vm->pc++;
-            break;
-        case ',':
-            if ((input = getchar()) != EOF) {
-                vm->memory[vm->pointer] = input;
+        case BF_INS_ADD_P:
+            pointer_holder = vm->pointer + instr->argument;
+            if (pointer_holder < BF_MEMORY_SIZE) {
+                vm->pointer = pointer_holder;
             }
-
             vm->pc++;
             break;
-        case '[':
-            if (!vm->memory[vm->pointer]) {
-                bf_vm_goto_closing(vm);
+        case BF_INS_SUB_P:
+            pointer_holder = vm->pointer - instr->argument;
+            if (pointer_holder >= 0) {
+                vm->pointer = pointer_holder;
+            }
+            vm->pc++;
+            break;
+        case BF_INS_BRANCH_Z:
+            if (vm->memory[vm->pointer] == 0) {
+                vm->pc = instr->argument;
             } else {
                 vm->pc++;
             }
             break;
-        case ']':
-            if (vm->memory[vm->pointer]) {
-                bf_vm_goto_opening(vm);
+        case BF_INS_BRANCH_NZ:
+            if (vm->memory[vm->pointer] != 0) {
+                vm->pc = instr->argument;
             } else {
                 vm->pc++;
             }
             break;
+        case BF_INS_JMP:
+            vm->pc = instr->argument;
+            break;
+        case BF_INS_HALT:
+            goto halt;
         default:
-            vm->pc++;
-            break;
+            goto halt; // Failsafe for unrecognized opcodes.
         }
     }
 
-    struct bf_result result = {
+halt:
+
+    return (struct bf_result){
         .code = BF_RESULT_SUCCESS,
         .message = NULL,
     };
-    return result;
 }

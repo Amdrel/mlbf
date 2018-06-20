@@ -25,6 +25,7 @@
 #include <stdlib.h>
 
 #include "errors.h"
+#include "program.h"
 
 /** Amount of memory allocated by the brainfuck vm. */
 #define BF_MEMORY_SIZE 65536
@@ -39,36 +40,26 @@
 struct bf_vm {
     size_t pc;
     size_t pointer;
-    char *src;
+    struct bf_program *program;
     uint32_t vm_flags;
     int8_t memory[BF_MEMORY_SIZE];
 };
 
 /**
  * Initializes a brainfuck virtual machine. This function requires that
- * brainfuck source code be passed which will be interpreted later. The src
- * parameter is owned and managed by the virtual machine and should not be used
- * directly.
+ * brainfuck bytecode be passed which will be interpreted later.
+ *
+ * The program parameter that's passed in will be owned and managed by the
+ * virtual machine and should not be used directly after being passed in. If
+ * the vm fails to initialize, the program will be freed automatically.
  */
-struct bf_vm *bf_vm_create(char *src, uint32_t vm_flags);
+struct bf_vm *bf_vm_create(struct bf_program *program, uint32_t vm_flags);
 
 /**
  * Frees resources contained in a brainfuck virtual machine such as the main
  * memory and brainfuck source code.
  */
 void bf_vm_destroy(struct bf_vm *vm);
-
-/**
- * Scans for the last matching "[" and sets the pc to the opcode after. This is
- * used for conditionals and loops in brainfuck.
- */
-void bf_vm_goto_opening(struct bf_vm *vm);
-
-/**
- * Scans for the next matching "]" and sets the pc to the opcode after. This is
- * used for conditionals and loops in brainfuck.
- */
-void bf_vm_goto_closing(struct bf_vm *vm);
 
 /**
  * Starts the execution loop to execute code on the passed virtual machine and

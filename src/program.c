@@ -105,7 +105,7 @@ void bf_program_dump(struct bf_program *program)
 
     for (int i = 0; i < program->size; i++) {
         instr = &program->ir[i];
-        printf("%s -> %08x\n", bf_program_map_ins_name(instr->opcode), instr->argument);
+        printf("(0x%08x) %-9s -> 0x%08x\n", i, bf_program_map_ins_name(instr->opcode), instr->argument);
     }
 }
 
