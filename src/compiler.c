@@ -33,7 +33,7 @@ struct bf_program *bf_compile(char *src)
         goto error1;
     }
 
-    if (!bf_compile_unoptimized_pass(program, src)) {
+    if (!bf_unoptimized_pass(program, src)) {
         goto error2;
     }
 
@@ -45,7 +45,7 @@ error1:
     return NULL;
 }
 
-struct bf_program *bf_compile_unoptimized_pass(struct bf_program *program, char *src)
+struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src)
 {
     char ch;
     int i = 0;
@@ -97,7 +97,7 @@ struct bf_program *bf_compile_unoptimized_pass(struct bf_program *program, char 
                 });
             break;
         case '[':
-            address = bf_compile_find_closing_brace(i, src);
+            address = bf_find_closing_brace(i, src);
             if (address < 0) {
                 goto error1;
             }
@@ -110,7 +110,7 @@ struct bf_program *bf_compile_unoptimized_pass(struct bf_program *program, char 
 
             break;
         case ']':
-            address = bf_compile_find_opening_brace(i, src);
+            address = bf_find_opening_brace(i, src);
             if (address < 0) {
                 goto error1;
             }
@@ -143,7 +143,7 @@ error1:
     return NULL;
 }
 
-int bf_compile_find_closing_brace(int pos, char *src)
+int bf_find_closing_brace(int pos, char *src)
 {
     char ch;
     int i = pos + 1;
@@ -157,7 +157,7 @@ int bf_compile_find_closing_brace(int pos, char *src)
     }
 
     while ((ch = src[i]) != '\0') {
-        if (!bf_compile_is_valid_character(ch)) {
+        if (!bf_is_valid_instruction(ch)) {
             offset--;
             i++;
             continue;
@@ -181,7 +181,7 @@ error1:
     return result + offset;
 }
 
-int bf_compile_find_opening_brace(int pos, char *src)
+int bf_find_opening_brace(int pos, char *src)
 {
     char ch;
     int i = pos - 1;
@@ -192,7 +192,7 @@ int bf_compile_find_opening_brace(int pos, char *src)
     while (i >= 0) {
         ch = src[i];
 
-        if (!bf_compile_is_valid_character(ch)) {
+        if (!bf_is_valid_instruction(ch)) {
             offset++;
             i--;
             continue;
@@ -215,7 +215,7 @@ int bf_compile_find_opening_brace(int pos, char *src)
     return result + offset;
 }
 
-bool bf_compile_is_valid_character(char ch)
+bool bf_is_valid_instruction(char ch)
 {
     switch (ch) {
     case '>':
