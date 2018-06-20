@@ -26,8 +26,8 @@
 #include "program.h"
 
 /** Allocation size used when reading brainfuck from stdin. */
-#define STDIN_ALLOC_SIZE 64
-#define FILE_ALLOC_SIZE 64
+#define STDIN_ALLOC_SIZE 1024
+#define FILE_ALLOC_SIZE 1024
 
 /**
  * Reads a file and returns a string containing the contents. A size must be
@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
         fp = fopen(argv[1], "r");
         if (fp == NULL) {
             fprintf(stderr, "Unable to open file '%s'.\n", argv[1]);
-            return 1;
+            goto error1;
         }
         alloc_size = FILE_ALLOC_SIZE;
     } else {
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
     src = read_file(fp, alloc_size);
     if (src == NULL) {
         fprintf(stderr, "Unable to read source code.\n");
-        return 1;
+        goto error1;
     }
     if (fp != stdin) {
         fclose(fp);
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
     struct bf_program *program = bf_compile(src);
     if (!program) {
         fprintf(stderr, "Unable to compile source code.\n");
-        return 1;
+        goto error2;
     }
 
     // bf_program_dump(program);
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     struct bf_vm *vm = bf_vm_create(program, 0);
     if (!vm) {
         fprintf(stderr, "Unable to initialize vm.\n");
-        return 1;
+        goto error2;
     }
 
     // Start executing brainfuck in the virtual machine. Cleanup resources used
@@ -119,5 +119,13 @@ int main(int argc, char *argv[])
     bf_vm_run(vm);
     bf_vm_destroy(vm);
 
+    free(src);
+
     return 0;
+
+error2:
+    free(src);
+error1:
+
+    return 1;
 }
