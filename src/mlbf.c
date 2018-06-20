@@ -21,7 +21,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "compiler.h"
 #include "interpreter.h"
+#include "program.h"
 
 /** Allocation size used when reading brainfuck from stdin. */
 #define STDIN_ALLOC_SIZE 64
@@ -88,25 +90,34 @@ int main(int argc, char *argv[])
 
     src = read_file(fp, alloc_size);
     if (src == NULL) {
-        fprintf(stderr, "Unable to source code.\n");
+        fprintf(stderr, "Unable to read source code.\n");
         return 1;
     }
     if (fp != stdin) {
         fclose(fp);
     }
 
+    struct bf_program *program = bf_compile(src);
+    if (!program) {
+        fprintf(stderr, "Unable to compile source code.\n");
+        return 1;
+    }
+
+    // bf_program_dump(program);
+
     // Read brainfuck source code from stdin and initialize the virtual machine.
     // TODO: Add a compilation before this call once the bytecode is defined.
-    bf_vm *vm = bf_create_vm(src, 0);
+    struct bf_vm *vm = bf_vm_create(program, 0);
     if (!vm) {
+        fprintf(stderr, "Unable to initialize vm.\n");
         return 1;
     }
 
     // Start executing brainfuck in the virtual machine. Cleanup resources used
-    // by the virtual machine before quitting and after bf_run returns (program
+    // by the virtual machine before quitting and after bf_vm_run returns (program
     // finished running).
-    bf_run(vm);
-    bf_destroy_vm(vm);
+    bf_vm_run(vm);
+    bf_vm_destroy(vm);
 
     return 0;
 }
