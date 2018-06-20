@@ -7,6 +7,7 @@ sources = [
   'src/mlbf.c',
   'src/interpreter.c',
   'src/program.c',
+  'src/compiler.c',
 ]
 
 dependencies = []

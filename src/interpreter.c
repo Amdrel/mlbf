@@ -23,7 +23,7 @@
 
 #include "interpreter.h"
 
-struct bf_vm *bf_vm_create(char *src, uint32_t flags)
+struct bf_vm *bf_vm_create(char *src, uint32_t vm_flags)
 {
     struct bf_vm *vm = calloc(1, sizeof(struct bf_vm));
     if (!vm) {
@@ -37,7 +37,7 @@ struct bf_vm *bf_vm_create(char *src, uint32_t flags)
     }
     vm->pc = 0;
     vm->pointer = 0;
-    vm->flags = flags;
+    vm->vm_flags = vm_flags;
 
     return vm;
 

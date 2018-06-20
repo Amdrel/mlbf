@@ -21,18 +21,37 @@
 #ifndef BF_PROGRAM_H
 #define BF_PROGRAM_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #define INSTRUCTION_ALLOC_COUNT 1024
+
+enum bf_opcode {
+    BF_INS_NOP,
+    BF_INS_IN,
+    BF_INS_OUT,
+    BF_INS_INC_V,
+    BF_INS_DEC_V,
+    BF_INS_ADD_V,
+    BF_INS_SUB_V,
+    BF_INS_INC_P,
+    BF_INS_DEC_P,
+    BF_INS_ADD_P,
+    BF_INS_SUB_P,
+    BF_INS_BRANCH_Z,
+    BF_INS_BRANCH_NZ,
+    BF_INS_JMP,
+    BF_INS_HALT,
+};
 
 /**
  * Contains an opcode and an optional argument paired with the instruction.
  * This argument is almost always an address or handle.
  */
 struct bf_instruction {
-    uint16_t argument;
-    uint8_t opcode;
+    enum bf_opcode opcode;
+    uint32_t argument;
 };
 
 /**
@@ -65,5 +84,15 @@ bool bf_program_grow(struct bf_program *program);
  * Appends an instruction to the end of the program.
  */
 bool bf_program_append(struct bf_program *program, struct bf_instruction instruction);
+
+/**
+ * Dumps the program bytecode to stdout.
+ */
+void bf_program_dump(struct bf_program *program);
+
+/**
+ * Returns a string representation of a given instruction.
+ */
+char *bf_program_map_ins_name(enum bf_opcode opcode);
 
 #endif

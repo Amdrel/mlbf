@@ -40,7 +40,7 @@ struct bf_vm {
     size_t pc;
     size_t pointer;
     char *src;
-    uint32_t flags;
+    uint32_t vm_flags;
     int8_t memory[BF_MEMORY_SIZE];
 };
 
@@ -50,7 +50,7 @@ struct bf_vm {
  * parameter is owned and managed by the virtual machine and should not be used
  * directly.
  */
-struct bf_vm *bf_vm_create(char *src, uint32_t flags);
+struct bf_vm *bf_vm_create(char *src, uint32_t vm_flags);
 
 /**
  * Frees resources contained in a brainfuck virtual machine such as the main

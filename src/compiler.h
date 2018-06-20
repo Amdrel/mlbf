@@ -25,6 +25,28 @@
  * Generates a compiled brainfuck progam from a brainfuck source string. The
  * string that's passed in doesn't have ownership transferred.
  */
-struct bf_program bf_compile(char *src);
+struct bf_program *bf_compile(char *src);
+
+/**
+ * Performs an unoptimized compilation of source. An AST isn't passed in the
+ * function arguments since brainfuck is a very simple language.
+ */
+struct bf_program *bf_compile_unoptimized_pass(struct bf_program *program, char *src);
+
+/**
+ * Utility function that finds a matching closing brace in the source code.
+ * This is used by the compiler to determine the addresses of conditional jumps
+ *
+ * A negative return value indicates a matching brace wasn't found.
+ */
+int bf_compile_find_closing_brace(int pos, char *src);
+
+/**
+ * Utility function that finds a matching opening brace in the source code.
+ * This is used by the compiler to determine the addresses of conditional jumps
+ *
+ * A negative return value indicates a matching brace wasn't found.
+ */
+int bf_compile_find_opening_brace(int pos, char *src);
 
 #endif
