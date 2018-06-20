@@ -3,4 +3,5 @@ mlbf
 .ycm_extra_conf.py
 .depend
 builddir/
+optimized_builddir/
 __pycache__/
