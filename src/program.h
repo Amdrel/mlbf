@@ -43,6 +43,7 @@ enum bf_opcode {
     BF_INS_BRANCH_NZ,
     BF_INS_JMP,
     BF_INS_HALT,
+    BF_INS_CLEAR,
 };
 
 /**

@@ -141,6 +141,10 @@ struct bf_result bf_vm_run(struct bf_vm *vm)
             break;
         case BF_INS_HALT:
             goto halt;
+        case BF_INS_CLEAR:
+            vm->memory[vm->pointer] = 0;
+            vm->pc++;
+            break;
         default:
             goto halt; // Failsafe for unrecognized opcodes.
         }
