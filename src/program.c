@@ -99,6 +99,19 @@ error1:
     return false;
 }
 
+bool bf_program_substitute(struct bf_program *program, struct bf_instruction *ir, int pos, size_t size)
+{
+    if (pos + size >= program->size) {
+        return false;
+    }
+
+    for (int i = 0; i < size; i++) {
+        program->ir[pos + i] = ir[i];
+    }
+
+    return true;
+}
+
 void bf_program_dump(struct bf_program *program)
 {
     struct bf_instruction *instr;
