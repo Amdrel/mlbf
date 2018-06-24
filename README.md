@@ -9,6 +9,16 @@ scripting environment this is the right tool for you.
 I plan on using this on a future project and it was a excellent excuse to get
 comfortable with C.
 
+## Security
+
+Contact me at reshurum@gmail.com first for bugs that you believe are critical
+security issues (buffer over-reads and the like) before reporting them in the
+issue trackers.
+
+## Changelog
+
+* Nothing here yet 🔨.
+
 ## License
 
 Copyright (c) 2017 Walter Kuppens
