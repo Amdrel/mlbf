@@ -43,7 +43,7 @@
 /**
  * Clear loop [-]
  */
-extern const bf_instruction bf_pattern_clear[] = {
+const struct bf_instruction bf_pattern_clear[] = {
     { BF_INS_BRANCH_Z, 0 },
     { BF_INS_DEC_V, 0 },
     { BF_INS_BRANCH_NZ, 0 },
@@ -52,7 +52,7 @@ extern const bf_instruction bf_pattern_clear[] = {
 /**
  * Copy loop [->+>+<<]
  */
-extern const bf_instruction bf_pattern_copy[] = {
+const struct bf_instruction bf_pattern_copy[] = {
     { BF_INS_BRANCH_Z, 0 },
     { BF_INS_DEC_V, 0 },
     { BF_INS_INC_P, 0 },
@@ -66,7 +66,7 @@ extern const bf_instruction bf_pattern_copy[] = {
  * optimized. It's very unlikely people will write code like that anyway, so
  * it's a little low on the priority list.
  */
-extern const bf_instruction bf_pattern_mul[] = {
+const struct bf_instruction bf_pattern_mul[] = {
     { BF_INS_BRANCH_Z, 0 },
     { BF_INS_DEC_V, 0 },
     { BF_INS_INC_P, 0 },

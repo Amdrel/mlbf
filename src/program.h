@@ -27,6 +27,10 @@
 
 #define INSTRUCTION_ALLOC_COUNT 1024
 
+/**
+ * README: Any opcodes that are added here should have a string representation
+ * defined in the implementation of 'bf_program_map_ins_name'.
+ */
 enum bf_opcode {
     BF_INS_NOP,
     BF_INS_IN, // ,
@@ -44,6 +48,7 @@ enum bf_opcode {
     BF_INS_JMP,
     BF_INS_HALT,
     BF_INS_CLEAR, // [-]
+    BF_INS_COPY, // (BF_INS_COPY, 1), (BF_INS_COPY, 2), (BF_INS_CLEAR) = [->+>+<<]
 };
 
 /**
@@ -84,22 +89,30 @@ bool bf_program_grow(struct bf_program *program);
 /**
  * Appends an instruction to the end of the program.
  */
-bool bf_program_append(struct bf_program *program, struct bf_instruction instruction);
+bool bf_program_append(struct bf_program *program, const struct bf_instruction instruction);
 
 /**
  * Injects IR into an existing program at a specified location. This function
  * will return false if the IR won't fit at the position specified.
  */
-bool bf_program_substitute(struct bf_program *program, struct bf_instruction *ir, int pos, size_t size);
+bool bf_program_substitute(struct bf_program *program, const struct bf_instruction *ir, int pos, size_t size);
+
+/**
+ * Compares a sequence of instruction opcodes at the desired position to a
+ * referenced list of instructions. This function is primarily used during
+ * optimization of existing IR while looking for common optimizable patterns.
+ */
+bool bf_program_match_sequence(struct bf_program *program, const struct bf_instruction *ir, int pos, size_t size);
 
 /**
  * Dumps the program bytecode to stdout.
  */
-void bf_program_dump(struct bf_program *program);
+void bf_program_dump(const struct bf_program *program);
 
 /**
- * Returns a string representation of a given instruction.
+ * Returns a string representation of a given instruction. This is used
+ * primarily for debugging purposes (dumping human-readable logs and IR code).
  */
-char *bf_program_map_ins_name(enum bf_opcode opcode);
+const char *bf_program_map_ins_name(enum bf_opcode opcode);
 
 #endif

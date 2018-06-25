@@ -20,8 +20,10 @@
 
 #include <stdio.h>
 
+#include "assert.h"
 #include "compiler.h"
 #include "interpreter.h"
+#include "patterns.h"
 #include "program.h"
 
 struct bf_program *bf_compile(char *src)
@@ -37,6 +39,10 @@ struct bf_program *bf_compile(char *src)
         goto error2;
     }
 
+    if (!bf_optimization_pass_1(program)) {
+        goto error2;
+    }
+
     return program;
 
 error2:
@@ -45,7 +51,7 @@ error1:
     return NULL;
 }
 
-struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src)
+bool bf_unoptimized_pass(struct bf_program *program, const char *src)
 {
     char ch;
     int i = 0;
@@ -137,13 +143,40 @@ struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src)
             .argument = 0,
         });
 
-    return program;
+    return true;
 
 error1:
-    return NULL;
+    return false;
 }
 
-int bf_find_closing_brace(int pos, char *src)
+bool bf_optimization_pass_1(struct bf_program *program)
+{
+    const size_t clear_pattern_length = sizeof(bf_pattern_clear) / sizeof(bf_pattern_clear[0]);
+    int i;
+
+    while (i < program->size) {
+        if (bf_program_match_sequence(program, bf_pattern_clear, i, clear_pattern_length)) {
+            const struct bf_instruction new_ir[] = {
+                { BF_INS_CLEAR, 0 },
+                { BF_INS_NOP, 0 },
+                { BF_INS_NOP, 0 },
+            };
+            const size_t new_ir_length = sizeof(new_ir) / sizeof(new_ir[0]);
+            assert(new_ir_length == clear_pattern_length);
+
+            bf_program_substitute(program, new_ir, i, new_ir_length);
+
+            i += new_ir_length;
+            continue;
+        }
+
+        i++;
+    }
+
+    return true;
+}
+
+int bf_find_closing_brace(int pos, const char *src)
 {
     char ch;
     int i = pos + 1;
@@ -177,11 +210,13 @@ int bf_find_closing_brace(int pos, char *src)
         i++;
     }
 
-error1:
     return result + offset;
+
+error1:
+    return -1;
 }
 
-int bf_find_opening_brace(int pos, char *src)
+int bf_find_opening_brace(int pos, const char *src)
 {
     char ch;
     int i = pos - 1;
@@ -215,7 +250,7 @@ int bf_find_opening_brace(int pos, char *src)
     return result + offset;
 }
 
-bool bf_is_valid_instruction(char ch)
+bool bf_is_valid_instruction(const char ch)
 {
     switch (ch) {
     case '>':

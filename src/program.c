@@ -82,7 +82,7 @@ error1:
  * allocate more space by calling 'bf_program_grow' if there isn't enough room
  * for the new instruction.
  */
-bool bf_program_append(struct bf_program *program, struct bf_instruction instruction)
+bool bf_program_append(struct bf_program *program, const struct bf_instruction instruction)
 {
     if (program->size >= program->capacity) {
         if (!bf_program_grow(program)) {
@@ -99,7 +99,12 @@ error1:
     return false;
 }
 
-bool bf_program_substitute(struct bf_program *program, struct bf_instruction *ir, int pos, size_t size)
+/**
+ * Substitutes existing IR code with new IR at a desired position. If the size
+ * of the new IR would cause an overwrite, the operation is cancelled and
+ * 'false' is returned to indicate failure.
+ */
+bool bf_program_substitute(struct bf_program *program, const struct bf_instruction *ir, int pos, size_t size)
 {
     if (pos + size >= program->size) {
         return false;
@@ -112,7 +117,22 @@ bool bf_program_substitute(struct bf_program *program, struct bf_instruction *ir
     return true;
 }
 
-void bf_program_dump(struct bf_program *program)
+bool bf_program_match_sequence(struct bf_program *program, const struct bf_instruction *ir, int pos, size_t size)
+{
+    if (pos + size >= program->size) {
+        return false;
+    }
+
+    for (int i = 0; i < size; i++) {
+        if (program->ir[pos + i].opcode != ir[i].opcode) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void bf_program_dump(const struct bf_program *program)
 {
     struct bf_instruction *instr;
 
@@ -122,7 +142,10 @@ void bf_program_dump(struct bf_program *program)
     }
 }
 
-char *bf_program_map_ins_name(enum bf_opcode opcode)
+/**
+ * Uses a massive switch to map enum values to strings.
+ */
+const char *bf_program_map_ins_name(enum bf_opcode opcode)
 {
     switch (opcode) {
     case BF_INS_NOP:
@@ -155,6 +178,8 @@ char *bf_program_map_ins_name(enum bf_opcode opcode)
         return "JMP";
     case BF_INS_HALT:
         return "HALT";
+    case BF_INS_CLEAR:
+        return "CLEAR";
     default:
         return "?";
     }
