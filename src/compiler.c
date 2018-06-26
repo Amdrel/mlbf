@@ -149,24 +149,55 @@ error1:
     return false;
 }
 
-bool bf_optimization_pass_1(struct bf_program *program)
+/**
+ * Peeks at IR at and ahead of the cursor and injects a clear instruction
+ * in-place of a clear loop if a one is detected.
+ */
+int bf_try_optimization_clear_loop(struct bf_program *program, int pos)
 {
     const size_t clear_pattern_length = sizeof(bf_pattern_clear) / sizeof(bf_pattern_clear[0]);
+
+    if (!bf_program_match_sequence(program, bf_pattern_clear, pos, clear_pattern_length)) {
+        return 0;
+    }
+
+    const struct bf_instruction new_ir[] = {
+        { BF_INS_CLEAR, 0 },
+        { BF_INS_NOP, 0 },
+        { BF_INS_NOP, 0 },
+    };
+    const size_t new_ir_length = sizeof(new_ir) / sizeof(new_ir[0]);
+    assert(new_ir_length == clear_pattern_length);
+
+    bf_program_substitute(program, new_ir, pos, new_ir_length);
+
+    return new_ir_length;
+}
+
+/**
+ * Peeks at IR and looks for a multiplication loop. A variable amount of MUL
+ * instructions and a CLEAR will be added if one is found.
+ */
+int bf_try_optimization_mul_loop(struct bf_program *program, int pos)
+{
+    return 0;
+}
+
+bool bf_optimization_pass_1(struct bf_program *program)
+{
     int i;
+    int offset;
 
     while (i < program->size) {
-        if (bf_program_match_sequence(program, bf_pattern_clear, i, clear_pattern_length)) {
-            const struct bf_instruction new_ir[] = {
-                { BF_INS_CLEAR, 0 },
-                { BF_INS_NOP, 0 },
-                { BF_INS_NOP, 0 },
-            };
-            const size_t new_ir_length = sizeof(new_ir) / sizeof(new_ir[0]);
-            assert(new_ir_length == clear_pattern_length);
+        // Replaces clear loops with singular clear instructions.
+        if ((offset = bf_try_optimization_clear_loop(program, i))) {
+            i += offset;
+            continue;
+        }
 
-            bf_program_substitute(program, new_ir, i, new_ir_length);
-
-            i += new_ir_length;
+        // Replaces multiplication loops with multiply instructions.
+        if ((offset = bf_try_optimization_mul_loop(program, i))) {
+            i += offset;
             continue;
         }
 

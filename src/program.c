@@ -180,6 +180,8 @@ const char *bf_program_map_ins_name(enum bf_opcode opcode)
         return "HALT";
     case BF_INS_CLEAR:
         return "CLEAR";
+    case BF_INS_COPY:
+        return "COPY";
     default:
         return "?";
     }
