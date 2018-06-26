@@ -22,6 +22,9 @@
 #include <stdio.h>
 
 #include "program.h"
+#include "utils.h"
+
+#define INSTRUCTION_ALLOC_COUNT 1024
 
 struct bf_program *bf_program_create()
 {
@@ -117,14 +120,25 @@ bool bf_program_substitute(struct bf_program *program, const struct bf_instructi
     return true;
 }
 
-bool bf_program_match_sequence(struct bf_program *program, const struct bf_instruction *ir, int pos, size_t size)
+bool bf_program_match_sequence(struct bf_program *program, const struct bf_pattern_rule *rules, int pos, size_t size)
 {
     if (pos + size >= program->size) {
         return false;
     }
 
     for (int i = 0; i < size; i++) {
-        if (program->ir[pos + i].opcode != ir[i].opcode) {
+        struct bf_instruction instr = program->ir[pos + i];
+        struct bf_pattern_rule rule = rules[i];
+
+        // Opcodes should always match regardless of the flags.
+        if (instr.opcode != rule.instruction.opcode) {
+            // printf("%s -> %s\n", bf_program_map_ins_name(instr.opcode), bf_program_map_ins_name(rule.instruction.opcode));
+            return false;
+        }
+
+        // Ensure arguments match when strict mode is enabled.
+        bool is_strict = bf_utils_check_flag(rule.flags, BF_PATTERN_STRICT);
+        if (is_strict && instr.argument != rule.instruction.argument) {
             return false;
         }
     }

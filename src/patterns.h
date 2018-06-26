@@ -21,7 +21,7 @@
 #ifndef BF_PATTERNS_H
 #define BF_PATTERNS_H
 
-#include "program.h"
+#include "instruction.h"
 
 /**
  * === README ===
@@ -40,23 +40,40 @@
  * check for performance regressions when implementing them.
  */
 
+#define BF_PATTERN_STRICT 0x1
+
+/**
+ * Wrapper for instructions with additional flags that determine how the
+ * instruction will be matched.
+ */
+struct bf_pattern_rule {
+    struct bf_instruction instruction;
+    uint32_t flags;
+};
+
 /**
  * Clear loop [-]
  */
-const struct bf_instruction bf_pattern_clear[] = {
-    { BF_INS_BRANCH_Z, 0 },
-    { BF_INS_DEC_V, 0 },
-    { BF_INS_BRANCH_NZ, 0 },
+static const struct bf_pattern_rule bf_pattern_clear[] = {
+    { { BF_INS_BRANCH_Z, 0 }, 0 },
+    { { BF_INS_SUB_V, 1 }, BF_PATTERN_STRICT },
+    { { BF_INS_BRANCH_NZ, 0 }, 0 },
 };
 
 /**
  * Copy loop [->+>+<<]
  */
-const struct bf_instruction bf_pattern_copy[] = {
-    { BF_INS_BRANCH_Z, 0 },
-    { BF_INS_DEC_V, 0 },
-    { BF_INS_INC_P, 0 },
-    { BF_INS_INC_V, 0 },
+static const struct bf_pattern_rule bf_pattern_copy[] = {
+    { { BF_INS_BRANCH_Z, 0 }, 0 },
+    { { BF_INS_SUB_V, 1 }, BF_PATTERN_STRICT },
+};
+
+/**
+ * Used to match the inner portion of the copy loop.
+ */
+static const struct bf_pattern_rule bf_pattern_copy_op[] = {
+    { { BF_INS_ADD_P, 1 }, BF_PATTERN_STRICT },
+    { { BF_INS_ADD_V, 1 }, BF_PATTERN_STRICT },
 };
 
 /**
@@ -66,11 +83,19 @@ const struct bf_instruction bf_pattern_copy[] = {
  * optimized. It's very unlikely people will write code like that anyway, so
  * it's a little low on the priority list.
  */
-const struct bf_instruction bf_pattern_mul[] = {
-    { BF_INS_BRANCH_Z, 0 },
-    { BF_INS_DEC_V, 0 },
-    { BF_INS_INC_P, 0 },
-    { BF_INS_ADD_V, 0 },
+static const struct bf_pattern_rule bf_pattern_mul[] = {
+    { { BF_INS_ADD_P, 0 }, 0 },
+    { { BF_INS_BRANCH_Z, 0 }, 0 },
+    { { BF_INS_SUB_V, 1 }, BF_PATTERN_STRICT },
+};
+
+/**
+ * Used to match the inner portion of a multiplication loop that's meant to
+ * increment on each iteration.
+ */
+static const struct bf_pattern_rule bf_pattern_mul_op[] = {
+    { { BF_INS_ADD_P, 1 }, BF_PATTERN_STRICT },
+    { { BF_INS_ADD_V, 0 }, 0 },
 };
 
 #endif

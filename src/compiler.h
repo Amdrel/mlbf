@@ -36,9 +36,25 @@ struct bf_program *bf_compile(char *src);
 bool bf_unoptimized_pass(struct bf_program *program, const char *src);
 
 /**
- * Replaces clear loops with CLEAR instructions.
+ * Combines common operations such as sequential increments into singular ADD /
+ * SUB instructions.
+ *
+ * No INC or DEC instructions will remain after this pass as discriminating
+ * between ADDs SUBs INCs and DECs makes the logic much more complex than it
+ * needs to be. They will be added back later once most optimization is done.
  */
 bool bf_optimization_pass_1(struct bf_program *program);
+
+/**
+ * Finds common patterns used in brainfuck programs and optimizes them into
+ * ad-hoc instructions to speed up execution.
+ */
+bool bf_optimization_pass_2(struct bf_program *program);
+
+/**
+ * Replaces complex instructions with simpler ones if possible.
+ */
+bool bf_optimization_pass_3(struct bf_program *program);
 
 /**
  * Utility function that finds a matching closing brace in the source code.

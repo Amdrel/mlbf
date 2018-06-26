@@ -42,6 +42,12 @@ struct bf_program *bf_compile(char *src)
     if (!bf_optimization_pass_1(program)) {
         goto error2;
     }
+    if (!bf_optimization_pass_2(program)) {
+        goto error2;
+    }
+    if (!bf_optimization_pass_3(program)) {
+        goto error2;
+    }
 
     return program;
 
@@ -183,12 +189,39 @@ int bf_try_optimization_mul_loop(struct bf_program *program, int pos)
     return 0;
 }
 
+/*
+ * Replaces increments and decrements with ADDs and SUBs. This is done for two
+ * reasons:
+ *
+ * 1. ADDs / SUBs are easier to check when looking for optimization patterns.
+ * 2. It's not very efficient to increment and decrement in a loop.
+ *
+ * Once all complex optimizations are done, ADDs and SUBs with '1' in them can
+ * be turned back into INC and DEC instructions (this happens in a later pass).
+ */
 bool bf_optimization_pass_1(struct bf_program *program)
 {
-    int i;
+    return true;
+}
+
+/**
+ * Pass 2 applys optimizations for the following constructs:
+ *
+ * - Clear Loops
+ * - Multiplication Loops
+ * - Copy Loops
+ * - Scan Loops (uses memchr)
+ */
+bool bf_optimization_pass_2(struct bf_program *program)
+{
+    int i = 0;
     int offset;
 
     while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_NOP) {
+            continue;
+        }
+
         // Replaces clear loops with singular clear instructions.
         if ((offset = bf_try_optimization_clear_loop(program, i))) {
             i += offset;
@@ -204,6 +237,14 @@ bool bf_optimization_pass_1(struct bf_program *program)
         i++;
     }
 
+    return true;
+}
+
+/**
+ * Replaces occurences of ADD(1) and SUB(1) with INC and DEC respectively.
+ */
+bool bf_optimization_pass_3(struct bf_program *program)
+{
     return true;
 }
 
