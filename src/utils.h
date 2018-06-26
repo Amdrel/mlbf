@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef BF_utils_H
-#define BF_utils_H
+#ifndef BF_UTILS_H
+#define BF_UTILS_H
 
 #include <stdint.h>
 
