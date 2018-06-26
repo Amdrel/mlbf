@@ -189,6 +189,158 @@ int bf_try_optimization_mul_loop(struct bf_program *program, int pos)
     return 0;
 }
 
+int bf_try_optimization_combine_inc_v(struct bf_program *program, int pos)
+{
+    int i = pos;
+    int accumulator = 0;
+    int end;
+
+    // Figure out how many sequential instructions there are.
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_INC_V) {
+            accumulator++;
+        } else {
+            break;
+        }
+        i++;
+    }
+
+    if (accumulator > 0) {
+        i = pos;
+        end = pos + accumulator;
+
+        // Inject the new add instruction.
+        program->ir[i].opcode = BF_INS_ADD_V;
+        program->ir[i].argument = accumulator;
+
+        i++;
+
+        // Replace the remaining instructions that were previously increments
+        // with NOPs. These will be stripped out later.
+        while (i < end) {
+            program->ir[i].opcode = BF_INS_NOP;
+            program->ir[i].argument = 0;
+            i++;
+        }
+    }
+
+    return accumulator;
+}
+
+int bf_try_optimization_combine_dec_v(struct bf_program *program, int pos)
+{
+    int i = pos;
+    int accumulator = 0;
+    int end;
+
+    // Figure out how many sequential instructions there are.
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_DEC_V) {
+            accumulator++;
+        } else {
+            break;
+        }
+        i++;
+    }
+
+    if (accumulator > 0) {
+        i = pos;
+        end = pos + accumulator;
+
+        // Inject the new add instruction.
+        program->ir[i].opcode = BF_INS_SUB_V;
+        program->ir[i].argument = accumulator;
+
+        i++;
+
+        // Replace the remaining instructions that were previously increments
+        // with NOPs. These will be stripped out later.
+        while (i < end) {
+            program->ir[i].opcode = BF_INS_NOP;
+            program->ir[i].argument = 0;
+            i++;
+        }
+    }
+
+    return accumulator;
+}
+
+int bf_try_optimization_combine_inc_p(struct bf_program *program, int pos)
+{
+    int i = pos;
+    int accumulator = 0;
+    int end;
+
+    // Figure out how many sequential instructions there are.
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_INC_P) {
+            accumulator++;
+        } else {
+            break;
+        }
+        i++;
+    }
+
+    if (accumulator > 0) {
+        i = pos;
+        end = pos + accumulator;
+
+        // Inject the new add instruction.
+        program->ir[i].opcode = BF_INS_ADD_P;
+        program->ir[i].argument = accumulator;
+
+        i++;
+
+        // Replace the remaining instructions that were previously increments
+        // with NOPs. These will be stripped out later.
+        while (i < end) {
+            program->ir[i].opcode = BF_INS_NOP;
+            program->ir[i].argument = 0;
+            i++;
+        }
+    }
+
+    return accumulator;
+}
+
+int bf_try_optimization_combine_dec_p(struct bf_program *program, int pos)
+{
+    int i = pos;
+    int accumulator = 0;
+    int end;
+
+    // Figure out how many sequential instructions there are.
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_DEC_P) {
+            accumulator++;
+        } else {
+            break;
+        }
+        i++;
+    }
+
+    if (accumulator > 0) {
+        i = pos;
+        end = pos + accumulator;
+
+        // Inject the new add instruction.
+        program->ir[i].opcode = BF_INS_SUB_P;
+        program->ir[i].argument = accumulator;
+
+        i++;
+
+        // Replace the remaining instructions that were previously increments
+        // with NOPs. These will be stripped out later.
+        while (i < end) {
+            program->ir[i].opcode = BF_INS_NOP;
+            program->ir[i].argument = 0;
+            i++;
+        }
+    }
+
+    return accumulator;
+}
+
 /*
  * Replaces increments and decrements with ADDs and SUBs. This is done for two
  * reasons:
@@ -201,6 +353,35 @@ int bf_try_optimization_mul_loop(struct bf_program *program, int pos)
  */
 bool bf_optimization_pass_1(struct bf_program *program)
 {
+    int i = 0;
+    int offset;
+
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_NOP) {
+            i++;
+            continue;
+        }
+
+        if ((offset = bf_try_optimization_combine_inc_v(program, i))) {
+            i += offset;
+            continue;
+        }
+        if ((offset = bf_try_optimization_combine_dec_v(program, i))) {
+            i += offset;
+            continue;
+        }
+        if ((offset = bf_try_optimization_combine_inc_p(program, i))) {
+            i += offset;
+            continue;
+        }
+        if ((offset = bf_try_optimization_combine_dec_p(program, i))) {
+            i += offset;
+            continue;
+        }
+
+        i++;
+    }
+
     return true;
 }
 
@@ -219,6 +400,7 @@ bool bf_optimization_pass_2(struct bf_program *program)
 
     while (i < program->size) {
         if (program->ir[i].opcode == BF_INS_NOP) {
+            i++;
             continue;
         }
 
@@ -227,7 +409,6 @@ bool bf_optimization_pass_2(struct bf_program *program)
             i += offset;
             continue;
         }
-
         // Replaces multiplication loops with multiply instructions.
         if ((offset = bf_try_optimization_mul_loop(program, i))) {
             i += offset;

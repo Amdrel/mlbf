@@ -132,7 +132,6 @@ bool bf_program_match_sequence(struct bf_program *program, const struct bf_patte
 
         // Opcodes should always match regardless of the flags.
         if (instr.opcode != rule.instruction.opcode) {
-            // printf("%s -> %s\n", bf_program_map_ins_name(instr.opcode), bf_program_map_ins_name(rule.instruction.opcode));
             return false;
         }
 
@@ -152,7 +151,7 @@ void bf_program_dump(const struct bf_program *program)
 
     for (int i = 0; i < program->size; i++) {
         instr = &program->ir[i];
-        printf("(0x%08x) %-9s -> 0x%08x\n", i, bf_program_map_ins_name(instr->opcode), instr->argument);
+        printf("(0x%08x) %-9s -> 0x%08x (%d)\n", i, bf_program_map_ins_name(instr->opcode), instr->argument, instr->argument);
     }
 }
 
