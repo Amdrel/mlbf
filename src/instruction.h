@@ -54,6 +54,7 @@ enum bf_opcode {
 struct __attribute__((aligned)) bf_instruction {
     enum bf_opcode opcode;
     uint32_t argument;
+    uint32_t offset;
 };
 
 #endif

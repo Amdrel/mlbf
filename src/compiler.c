@@ -423,9 +423,68 @@ bool bf_optimization_pass_2(struct bf_program *program)
 
 /**
  * Replaces occurences of ADD(1) and SUB(1) with INC and DEC respectively.
+ *
+ * Optimizations that happen here assume that branches always appear in certain
+ * orders and always have a matching branch 'brace'.
  */
 bool bf_optimization_pass_3(struct bf_program *program)
 {
+    int i = 0;
+    int offset = 0;
+    int addr = 0;
+
+    while (i < program->size) {
+        enum bf_opcode opcode = program->ir[i].opcode;
+        enum bf_opcode argument = program->ir[i].argument;
+
+        if (opcode == BF_INS_NOP) {
+            offset++;
+        } else if (opcode == BF_INS_BRANCH_Z) {
+            addr = program->ir[i].argument;
+            program->ir[addr - 1].offset = offset;
+            program->ir[i - offset] = program->ir[i];
+        } else if (opcode == BF_INS_BRANCH_NZ) {
+            addr = program->ir[i].argument - program->ir[i].offset;
+            program->ir[addr - 1].offset = offset;
+            program->ir[i - offset] = program->ir[i];
+        } else if (opcode == BF_INS_ADD_V && argument == 1) {
+            program->ir[i].opcode = BF_INS_INC_V;
+            program->ir[i].argument = 0;
+            program->ir[i - offset] = program->ir[i];
+        } else if (opcode == BF_INS_SUB_V && argument == 1) {
+            program->ir[i].opcode = BF_INS_DEC_V;
+            program->ir[i].argument = 0;
+            program->ir[i - offset] = program->ir[i];
+        } else if (opcode == BF_INS_ADD_P && argument == 1) {
+            program->ir[i].opcode = BF_INS_INC_P;
+            program->ir[i].argument = 0;
+            program->ir[i - offset] = program->ir[i];
+        } else if (opcode == BF_INS_SUB_P && argument == 1) {
+            program->ir[i].opcode = BF_INS_DEC_P;
+            program->ir[i].argument = 0;
+            program->ir[i - offset] = program->ir[i];
+        } else {
+            program->ir[i - offset] = program->ir[i];
+        }
+
+        i++;
+    }
+
+    program->size -= offset;
+    i = 0;
+
+    while (i < program->size) {
+        enum bf_opcode opcode = program->ir[i].opcode;
+
+        if (opcode == BF_INS_BRANCH_NZ) {
+            program->ir[i].argument -= program->ir[i].offset;
+        } else if (opcode == BF_INS_BRANCH_Z) {
+            program->ir[i].argument -= program->ir[i].offset;
+        }
+
+        i++;
+    }
+
     return true;
 }
 
