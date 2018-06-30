@@ -59,8 +59,7 @@ struct bf_result bf_vm_run(struct bf_vm *vm)
 {
     struct bf_instruction *instr; // Owned and managed by vm.
     int input; // Buffered input from stdin.
-    uint32_t pointer_holder;
-    uint32_t value_holder;
+    uint16_t pointer_holder;
 
     for (;;) {
         instr = &vm->program->ir[vm->pc];
@@ -96,31 +95,19 @@ struct bf_result bf_vm_run(struct bf_vm *vm)
             vm->pc++;
             break;
         case BF_INS_INC_P:
-            // Bounds check to prevent buffer over-reads.
-            if (vm->pointer < BF_MEMORY_SIZE) {
-                vm->pointer++;
-            }
+            vm->pointer++; // Pointer wraps at memory boundary.
             vm->pc++;
             break;
         case BF_INS_DEC_P:
-            // Bounds check to prevent buffer under-reads.
-            if (vm->pointer > 0) {
-                vm->pointer--;
-            }
+            vm->pointer--; // Pointer wraps at memory boundary.
             vm->pc++;
             break;
         case BF_INS_ADD_P:
-            pointer_holder = vm->pointer + instr->argument;
-            if (pointer_holder < BF_MEMORY_SIZE) {
-                vm->pointer = pointer_holder;
-            }
+            vm->pointer = vm->pointer + instr->argument;
             vm->pc++;
             break;
         case BF_INS_SUB_P:
-            pointer_holder = vm->pointer - instr->argument;
-            if (pointer_holder < BF_MEMORY_SIZE) {
-                vm->pointer = pointer_holder;
-            }
+            vm->pointer = vm->pointer - instr->argument;
             vm->pc++;
             break;
         case BF_INS_BRANCH_Z:
@@ -147,19 +134,13 @@ struct bf_result bf_vm_run(struct bf_vm *vm)
             vm->pc++;
             break;
         case BF_INS_COPY:
-            pointer_holder = vm->pointer + instr->argument;
-            if (pointer_holder < BF_MEMORY_SIZE) {
-                vm->memory[pointer_holder] = vm->memory[vm->pointer];
-            }
+            vm->memory[vm->pointer + instr->argument] = vm->memory[vm->pointer];
             vm->pc++;
             break;
         case BF_INS_MUL:
             pointer_holder = vm->pointer + instr->offset;
-            if (pointer_holder < BF_MEMORY_SIZE) {
-                if (vm->memory[vm->pointer] != 0) {
-                    value_holder = vm->memory[pointer_holder] + (instr->argument * vm->memory[vm->pointer]);
-                    vm->memory[pointer_holder] = value_holder;
-                }
+            if (vm->memory[vm->pointer] != 0) {
+                vm->memory[pointer_holder] = vm->memory[pointer_holder] + (instr->argument * vm->memory[vm->pointer]);
             }
             vm->pc++;
             break;
