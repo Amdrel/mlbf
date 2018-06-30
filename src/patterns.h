@@ -28,14 +28,14 @@
  *
  * This file contains many instruction patterns that may indicate an
  * optimization can be made. Just because these tests pass doesn't mean an
- * optimization can be made; they merely serves as a hint to the compiler. This
+ * optimization can be made; they merely serve as hints to the compiler. This
  * is due to the fact that many occurrences of the same brainfuck design
  * patterns can be of varying length depending on the 'operands', with a good
  * example of this being multiplication loops and copy loops.
  *
  * Every pattern is checked at different compilation passes, and because of
  * this certain instructions may not be in the IR yet. If you edit / add
- * patterns, be mindful of when they'll be check or they might not work as
+ * patterns, be mindful of when they'll be checked or they might not work as
  * expected. Adding new optimizations can also break existing optimizations, so
  * check for performance regressions when implementing them.
  */
@@ -78,15 +78,12 @@ static const struct bf_pattern_rule bf_pattern_copy_op[] = {
 
 /**
  * Multiplication loop [->+++>+++++++<<]
- *
- * The pattern assumes an add opcode so having a mul againt '1' will not be
- * optimized. It's very unlikely people will write code like that anyway, so
- * it's a little low on the priority list.
  */
 static const struct bf_pattern_rule bf_pattern_mul[] = {
-    { { BF_INS_ADD_P, 0 }, 0 },
     { { BF_INS_BRANCH_Z, 0 }, 0 },
     { { BF_INS_SUB_V, 1 }, BF_PATTERN_STRICT },
+    { { BF_INS_ADD_P, 0 }, 0 },
+    { { BF_INS_ADD_V, 0 }, 0 },
 };
 
 /**
@@ -94,7 +91,7 @@ static const struct bf_pattern_rule bf_pattern_mul[] = {
  * increment on each iteration.
  */
 static const struct bf_pattern_rule bf_pattern_mul_op[] = {
-    { { BF_INS_ADD_P, 1 }, BF_PATTERN_STRICT },
+    { { BF_INS_ADD_P, 0 }, 0 },
     { { BF_INS_ADD_V, 0 }, 0 },
 };
 

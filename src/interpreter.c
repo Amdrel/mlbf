@@ -60,6 +60,7 @@ struct bf_result bf_vm_run(struct bf_vm *vm)
     struct bf_instruction *instr; // Owned and managed by vm.
     int input; // Buffered input from stdin.
     uint32_t pointer_holder;
+    uint32_t value_holder;
 
     for (;;) {
         instr = &vm->program->ir[vm->pc];
@@ -149,6 +150,16 @@ struct bf_result bf_vm_run(struct bf_vm *vm)
             pointer_holder = vm->pointer + instr->argument;
             if (pointer_holder < BF_MEMORY_SIZE) {
                 vm->memory[pointer_holder] = vm->memory[vm->pointer];
+            }
+            vm->pc++;
+            break;
+        case BF_INS_MUL:
+            pointer_holder = vm->pointer + instr->offset;
+            if (pointer_holder < BF_MEMORY_SIZE) {
+                if (vm->memory[vm->pointer] != 0) {
+                    value_holder = vm->memory[pointer_holder] + (instr->argument * vm->memory[vm->pointer]);
+                    vm->memory[pointer_holder] = value_holder;
+                }
             }
             vm->pc++;
             break;

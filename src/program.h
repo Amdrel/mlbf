@@ -69,7 +69,7 @@ bool bf_program_substitute(struct bf_program *program, const struct bf_instructi
  * referenced list of instructions. This function is primarily used during
  * optimization of existing IR while looking for common optimizable patterns.
  */
-bool bf_program_match_sequence(struct bf_program *program, const struct bf_pattern_rule *rules, int pos, size_t size);
+int bf_program_match_sequence(struct bf_program *program, const struct bf_pattern_rule *rules, int pos, size_t size);
 
 /**
  * Dumps the program bytecode to stdout.

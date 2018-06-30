@@ -186,7 +186,108 @@ int bf_try_optimization_clear_loop(struct bf_program *program, int pos)
  */
 int bf_try_optimization_mul_loop(struct bf_program *program, int pos)
 {
-    return 0;
+    const size_t mul_pattern_length = sizeof(bf_pattern_mul) / sizeof(bf_pattern_mul[0]);
+    const size_t mul_pattern_op_length = sizeof(bf_pattern_mul_op) / sizeof(bf_pattern_mul_op[0]);
+
+    int read_cursor = pos;
+    int write_cursor = pos;
+    int pattern_length = 0;
+    int opcount = 0;
+    int offset = 0;
+    int seq_offset = 0;
+
+    // We're -potentially- dealing with a mul loop if this pattern is found.
+    if (!bf_program_match_sequence(program, bf_pattern_mul, read_cursor, mul_pattern_length)) {
+        return 0;
+    }
+    read_cursor += 2; // Jump over the branch and clear sections of the loop.
+
+    // Look for sequences of pointer increments (offset) and additions (mul
+    // operand). NOPs are skipped over when trying to extract the mul result
+    // offset as they're very likely to be present.
+    while ((seq_offset = bf_program_match_sequence(program, bf_pattern_mul_op, read_cursor, mul_pattern_op_length)) != 0) {
+        int nop_offset = read_cursor;
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+
+        opcount++;
+        offset += program->ir[nop_offset].argument;
+        read_cursor += seq_offset;
+    }
+    if (opcount <= 0) {
+        return 0;
+    }
+
+    // Note that the offset is passed to the pattern. The number of pointer
+    // decrements must match the amount of 'operations' in the multiplication
+    // loop. If this fails that means the multiplication loop is either an
+    // uncommon variation or it's simply not a mul loop.
+    //
+    // This is where the pointer is reset to the previous value so the next
+    // iterations operate on the same section of memory.
+    const struct bf_pattern_rule end_pattern[] = {
+        { { BF_INS_SUB_P, offset }, BF_PATTERN_STRICT },
+        { { BF_INS_BRANCH_NZ, 0 }, 0 },
+    };
+    const size_t end_pattern_length = sizeof(end_pattern) / sizeof(end_pattern[0]);
+    if ((seq_offset = bf_program_match_sequence(program, end_pattern, read_cursor, end_pattern_length)) == 0) {
+        return 0;
+    }
+
+    pattern_length = (read_cursor + seq_offset) - pos;
+
+    read_cursor = pos + 2;
+    offset = 0;
+    seq_offset = 0;
+
+    // At this point we're looking at a mul loop, start doing destructive
+    // mutations on the IR now that we're confident in our assumptions.
+    //
+    // This bit of code will overwrite the IR as it reads all the mul
+    // operations. Since the resulting optimized code is always smaller, there
+    // shouldn't be an issue with doing this.
+    while ((seq_offset = bf_program_match_sequence(program, bf_pattern_mul_op, read_cursor, mul_pattern_op_length)) != 0) {
+        int nop_offset = read_cursor;
+        int argument = 0;
+
+        // Get the offset for the MUL operation with the pointer shift value.
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+        offset += program->ir[nop_offset].argument;
+        nop_offset++;
+
+        // Get the argument for the MUL operation with the increment value.
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+        argument = program->ir[nop_offset].argument;
+
+        program->ir[write_cursor].opcode = BF_INS_MUL;
+        program->ir[write_cursor].argument = argument;
+        program->ir[write_cursor].offset = offset;
+
+        read_cursor += seq_offset;
+        write_cursor++;
+    }
+
+    // Add a last CLEAR instruction since multiplication loops end up clearing
+    // the cell they're using as an argument for the operation.
+    program->ir[write_cursor].opcode = BF_INS_CLEAR;
+    program->ir[write_cursor].argument = 0;
+    program->ir[write_cursor].offset = 0;
+    write_cursor++;
+
+    // Replace remaining instructions from the old mul loop with NOPs.
+    while (write_cursor < pos + pattern_length) {
+        program->ir[write_cursor].opcode = BF_INS_NOP;
+        program->ir[write_cursor].argument = 0;
+        program->ir[write_cursor].offset = 0;
+        write_cursor++;
+    }
+
+    return pattern_length;
 }
 
 int bf_try_optimization_combine_inc_v(struct bf_program *program, int pos)

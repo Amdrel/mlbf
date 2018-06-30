@@ -45,11 +45,16 @@ enum bf_opcode {
     BF_INS_HALT,
     BF_INS_CLEAR, // [-]
     BF_INS_COPY, // (BF_INS_COPY, 1), (BF_INS_COPY, 2), (BF_INS_CLEAR) = [->+>+<<]
+    BF_INS_MUL,
 };
 
 /**
  * Contains an opcode and an optional argument paired with the instruction.
  * This argument is almost always an address or handle.
+ *
+ * Offset is used for MUL instructions. Branching instructions will also have
+ * them set during optimization to store metadata, though this has no effect on
+ * execution.
  */
 struct __attribute__((aligned)) bf_instruction {
     enum bf_opcode opcode;

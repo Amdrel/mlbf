@@ -120,29 +120,45 @@ bool bf_program_substitute(struct bf_program *program, const struct bf_instructi
     return true;
 }
 
-bool bf_program_match_sequence(struct bf_program *program, const struct bf_pattern_rule *rules, int pos, size_t size)
+int bf_program_match_sequence(struct bf_program *program, const struct bf_pattern_rule *rules, int pos, size_t size)
 {
-    if (pos + size >= program->size) {
-        return false;
+    int real_iters = 0;
+    int mut_size = size;
+
+    if (pos + size >= program->size || size <= 0) {
+        return 0;
     }
 
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < mut_size && (pos + mut_size) < program->size; i++) {
         struct bf_instruction instr = program->ir[pos + i];
-        struct bf_pattern_rule rule = rules[i];
+        struct bf_pattern_rule rule = rules[real_iters];
+
+        if (instr.opcode == BF_INS_NOP) {
+            mut_size++;
+            continue;
+        }
 
         // Opcodes should always match regardless of the flags.
         if (instr.opcode != rule.instruction.opcode) {
-            return false;
+            return 0;
         }
 
         // Ensure arguments match when strict mode is enabled.
         bool is_strict = bf_utils_check_flag(rule.flags, BF_PATTERN_STRICT);
         if (is_strict && instr.argument != rule.instruction.argument) {
-            return false;
+            return 0;
         }
+
+        real_iters++;
     }
 
-    return true;
+    // This prevents a sequence of NOPs at the end of a program from tricking
+    // the match function into returning true.
+    if (real_iters == size) {
+        return mut_size;
+    } else {
+        return 0;
+    }
 }
 
 void bf_program_dump(const struct bf_program *program)
@@ -151,7 +167,7 @@ void bf_program_dump(const struct bf_program *program)
 
     for (int i = 0; i < program->size; i++) {
         instr = &program->ir[i];
-        printf("(0x%08x) %-9s -> 0x%08x (%d)\n", i, bf_program_map_ins_name(instr->opcode), instr->argument, instr->argument);
+        printf("(0x%08x) %-9s -> 0x%08x (%d), Offset: %d\n", i, bf_program_map_ins_name(instr->opcode), instr->argument, instr->argument, instr->offset);
     }
 }
 
@@ -195,6 +211,8 @@ const char *bf_program_map_ins_name(enum bf_opcode opcode)
         return "CLEAR";
     case BF_INS_COPY:
         return "COPY";
+    case BF_INS_MUL:
+        return "MUL";
     default:
         return "?";
     }
