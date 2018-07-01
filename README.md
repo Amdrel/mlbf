@@ -4,6 +4,11 @@ A simple brainfuck interpreter written in C. Brainfuck is fed through stdin and
 output is written to stdout. If you ever wanted to use brainfuck in your
 scripting environment this is the right tool for you.
 
+mlbf can also convert brainfuck to C, which can then be passed to a compiler
+and turned into native code. Depending on the optimization level used,
+compilation may take a while; however when used with programs like
+mandlebrot.b, performance increases as much as 6x can be seen at runtime.
+
 ## Why?
 
 I plan on using this on a future project and it was a excellent excuse to get
@@ -17,7 +22,35 @@ issue trackers.
 
 ## Changelog
 
-* Nothing here yet 🔨.
+### Jul 01, 2018
+
+* Added brainfuck bytecode to C transpiler (4-6x performance increase on
+average). This feature isn't compiled in at the moment as mlbf isn't set up
+to accept command-line flags.
+* Added copy loop optimization.
+
+### Jun 30, 2018
+
+* Added multiplication loop optimization.
+* Added clear loop optimization.
+* Added instruction contraction optimization.
+
+### Jun 20, 2018
+
+* Released a new bytecode compiler and interpreter for faster execution.
+
+### May 29, 2018
+
+* Added automated testing script.
+* Migrated from GNU Make to Meson.
+
+### May 20, 2018
+
+* Implemented the ',' instruction.
+
+### Apr 18, 2017
+
+* First limited working version finished, albeit very slow.
 
 ## License
 
