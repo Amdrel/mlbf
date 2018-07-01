@@ -8,6 +8,7 @@ sources = [
   'src/interpreter.c',
   'src/program.c',
   'src/compiler.c',
+  'src/transpiler.c',
 ]
 
 dependencies = []

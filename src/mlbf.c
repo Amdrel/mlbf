@@ -24,6 +24,7 @@
 #include "compiler.h"
 #include "interpreter.h"
 #include "program.h"
+#include "transpiler.h"
 
 /** Allocation size used when reading brainfuck from stdin. */
 #define STDIN_ALLOC_SIZE 1024
@@ -104,6 +105,9 @@ int main(int argc, char *argv[])
     }
 
     // bf_program_dump(program);
+
+    // // Transpile the bytecode to c.
+    // bf_transpile_program(program, stdout);
 
     // Read brainfuck source code from stdin and initialize the virtual machine.
     // TODO: Add a compilation before this call once the bytecode is defined.

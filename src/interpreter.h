@@ -42,7 +42,7 @@ struct bf_vm {
     size_t pointer;
     struct bf_program *program;
     uint32_t vm_flags;
-    int8_t memory[BF_MEMORY_SIZE];
+    uint8_t memory[BF_MEMORY_SIZE];
 };
 
 /**
