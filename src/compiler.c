@@ -20,8 +20,10 @@
 
 #include <stdio.h>
 
+#include "assert.h"
 #include "compiler.h"
 #include "interpreter.h"
+#include "patterns.h"
 #include "program.h"
 
 struct bf_program *bf_compile(char *src)
@@ -37,6 +39,16 @@ struct bf_program *bf_compile(char *src)
         goto error2;
     }
 
+    if (!bf_optimization_pass_1(program)) {
+        goto error2;
+    }
+    if (!bf_optimization_pass_2(program)) {
+        goto error2;
+    }
+    if (!bf_optimization_pass_3(program)) {
+        goto error2;
+    }
+
     return program;
 
 error2:
@@ -45,7 +57,7 @@ error1:
     return NULL;
 }
 
-struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src)
+bool bf_unoptimized_pass(struct bf_program *program, const char *src)
 {
     char ch;
     int i = 0;
@@ -55,46 +67,58 @@ struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src)
     while ((ch = src[i]) != '\0') {
         switch (ch) {
         case '>':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_INC_P,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_INC_P,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '<':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_DEC_P,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_DEC_P,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '+':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_INC_V,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_INC_V,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '-':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_DEC_V,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_DEC_V,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '.':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_OUT,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_OUT,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case ',':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_IN,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_IN,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '[':
             address = bf_find_closing_brace(i, src);
@@ -102,11 +126,13 @@ struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src)
                 goto error1;
             }
 
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_BRANCH_Z,
-                    .argument = address + 1 - offset,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_BRANCH_Z,
+                        .argument = address + 1 - offset,
+                    })) {
+                goto error1;
+            }
 
             break;
         case ']':
@@ -115,11 +141,13 @@ struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src)
                 goto error1;
             }
 
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_BRANCH_NZ,
-                    .argument = address + 1 - offset,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_BRANCH_NZ,
+                        .argument = address + 1 - offset,
+                    })) {
+                goto error1;
+            }
             break;
         default:
             offset++;
@@ -131,19 +159,575 @@ struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src)
 
     // Ensure there's a halt at the end so the interpreter stops when execution
     // reaches the end of the program.
-    bf_program_append(program,
-        (struct bf_instruction){
-            .opcode = BF_INS_HALT,
-            .argument = 0,
-        });
+    if (!bf_program_append(program,
+            (struct bf_instruction){
+                .opcode = BF_INS_HALT,
+                .argument = 0,
+            })) {
+        goto error1;
+    }
 
-    return program;
+    return true;
 
 error1:
-    return NULL;
+    return false;
 }
 
-int bf_find_closing_brace(int pos, char *src)
+/**
+ * Peeks at IR at and ahead of the cursor and injects a clear instruction
+ * in-place of a clear loop if a one is detected.
+ */
+int bf_try_optimization_clear_loop(struct bf_program *program, int pos)
+{
+    const size_t clear_pattern_length = sizeof(bf_pattern_clear) / sizeof(bf_pattern_clear[0]);
+
+    if (!bf_program_match_sequence(program, bf_pattern_clear, pos, clear_pattern_length)) {
+        return 0;
+    }
+
+    const struct bf_instruction new_ir[] = {
+        { BF_INS_CLEAR, 0 },
+        { BF_INS_NOP, 0 },
+        { BF_INS_NOP, 0 },
+    };
+    const size_t new_ir_length = sizeof(new_ir) / sizeof(new_ir[0]);
+    assert(new_ir_length == clear_pattern_length);
+
+    bf_program_substitute(program, new_ir, pos, new_ir_length);
+
+    return new_ir_length;
+}
+
+int bf_try_optimization_copy_loop(struct bf_program *program, int pos)
+{
+    const size_t copy_pattern_length = sizeof(bf_pattern_copy) / sizeof(bf_pattern_copy[0]);
+    const size_t copy_pattern_op_length = sizeof(bf_pattern_copy_op) / sizeof(bf_pattern_copy_op[0]);
+
+    int read_cursor = pos;
+    int write_cursor = pos;
+    int pattern_length = 0;
+    int opcount = 0;
+    int offset = 0;
+    int seq_offset = 0;
+
+    // We're -potentially- dealing with a copy loop if this pattern is found.
+    if (!bf_program_match_sequence(program, bf_pattern_copy, read_cursor, copy_pattern_length)) {
+        return 0;
+    }
+    read_cursor += 2; // Jump over the branch and clear sections of the loop.
+
+    // Look for sequences of pointer increments (offset) and additions (copy
+    // operand). NOPs are skipped over when trying to extract the copy result
+    // offset as they're very likely to be present.
+    while ((seq_offset = bf_program_match_sequence(program, bf_pattern_copy_op, read_cursor, copy_pattern_op_length)) != 0) {
+        int nop_offset = read_cursor;
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+
+        opcount++;
+        offset += program->ir[nop_offset].argument;
+        read_cursor += seq_offset;
+    }
+    if (opcount <= 0) {
+        return 0;
+    }
+
+    // Note that the offset is passed to the pattern. The number of pointer
+    // decrements must match the amount of 'operations' in the copy loop. If
+    // this fails that means the copy loop is either an uncommon variation or
+    // it's simply not a copy loop.
+    //
+    // This is where the pointer is reset to the previous value so the next
+    // iterations operate on the same section of memory.
+    const struct bf_pattern_rule end_pattern[] = {
+        { { BF_INS_SUB_P, offset }, BF_PATTERN_STRICT },
+        { { BF_INS_BRANCH_NZ, 0 }, 0 },
+    };
+    const size_t end_pattern_length = sizeof(end_pattern) / sizeof(end_pattern[0]);
+    if ((seq_offset = bf_program_match_sequence(program, end_pattern, read_cursor, end_pattern_length)) == 0) {
+        return 0;
+    }
+
+    pattern_length = (read_cursor + seq_offset) - pos;
+
+    read_cursor = pos + 2;
+    offset = 0;
+    seq_offset = 0;
+
+    // At this point we're looking at a copy loop, start doing destructive
+    // mutations on the IR now that we're confident in our assumptions.
+    //
+    // This bit of code will overwrite the IR as it reads all the copy
+    // operations. Since the resulting optimized code is always smaller, there
+    // shouldn't be an issue with doing this.
+    while ((seq_offset = bf_program_match_sequence(program, bf_pattern_copy_op, read_cursor, copy_pattern_op_length)) != 0) {
+        int nop_offset = read_cursor;
+
+        // Get the offset for the COPY operation with the pointer shift value.
+        // The number of increments for the copy isn't needed since it must
+        // always be 1.
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+        offset += program->ir[nop_offset].argument;
+        nop_offset++;
+
+        program->ir[write_cursor].opcode = BF_INS_COPY;
+        program->ir[write_cursor].argument = offset;
+        program->ir[write_cursor].offset = 0;
+
+        read_cursor += seq_offset;
+        write_cursor++;
+    }
+
+    // Add a last CLEAR instruction since copytiplication loops end up clearing
+    // the cell they're using as an argument for the operation.
+    program->ir[write_cursor].opcode = BF_INS_CLEAR;
+    program->ir[write_cursor].argument = 0;
+    program->ir[write_cursor].offset = 0;
+    write_cursor++;
+
+    // Replace remaining instructions from the old copy loop with NOPs.
+    while (write_cursor < pos + pattern_length) {
+        program->ir[write_cursor].opcode = BF_INS_NOP;
+        program->ir[write_cursor].argument = 0;
+        program->ir[write_cursor].offset = 0;
+        write_cursor++;
+    }
+
+    return pattern_length;
+}
+
+/**
+ * Peeks at IR and looks for a multiplication loop. A variable amount of MUL
+ * instructions and a CLEAR will be added if one is found.
+ */
+int bf_try_optimization_mul_loop(struct bf_program *program, int pos)
+{
+    const size_t mul_pattern_length = sizeof(bf_pattern_mul) / sizeof(bf_pattern_mul[0]);
+    const size_t mul_pattern_op_length = sizeof(bf_pattern_mul_op) / sizeof(bf_pattern_mul_op[0]);
+
+    int read_cursor = pos;
+    int write_cursor = pos;
+    int pattern_length = 0;
+    int opcount = 0;
+    int offset = 0;
+    int seq_offset = 0;
+
+    // We're -potentially- dealing with a mul loop if this pattern is found.
+    if (!bf_program_match_sequence(program, bf_pattern_mul, read_cursor, mul_pattern_length)) {
+        return 0;
+    }
+    read_cursor += 2; // Jump over the branch and clear sections of the loop.
+
+    // Look for sequences of pointer increments (offset) and additions (mul
+    // operand). NOPs are skipped over when trying to extract the mul result
+    // offset as they're very likely to be present.
+    while ((seq_offset = bf_program_match_sequence(program, bf_pattern_mul_op, read_cursor, mul_pattern_op_length)) != 0) {
+        int nop_offset = read_cursor;
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+
+        opcount++;
+        offset += program->ir[nop_offset].argument;
+        read_cursor += seq_offset;
+    }
+    if (opcount <= 0) {
+        return 0;
+    }
+
+    // Note that the offset is passed to the pattern. The number of pointer
+    // decrements must match the amount of 'operations' in the multiplication
+    // loop. If this fails that means the multiplication loop is either an
+    // uncommon variation or it's simply not a mul loop.
+    //
+    // This is where the pointer is reset to the previous value so the next
+    // iterations operate on the same section of memory.
+    const struct bf_pattern_rule end_pattern[] = {
+        { { BF_INS_SUB_P, offset }, BF_PATTERN_STRICT },
+        { { BF_INS_BRANCH_NZ, 0 }, 0 },
+    };
+    const size_t end_pattern_length = sizeof(end_pattern) / sizeof(end_pattern[0]);
+    if ((seq_offset = bf_program_match_sequence(program, end_pattern, read_cursor, end_pattern_length)) == 0) {
+        return 0;
+    }
+
+    pattern_length = (read_cursor + seq_offset) - pos;
+
+    read_cursor = pos + 2;
+    offset = 0;
+    seq_offset = 0;
+
+    // At this point we're looking at a mul loop, start doing destructive
+    // mutations on the IR now that we're confident in our assumptions.
+    //
+    // This bit of code will overwrite the IR as it reads all the mul
+    // operations. Since the resulting optimized code is always smaller, there
+    // shouldn't be an issue with doing this.
+    while ((seq_offset = bf_program_match_sequence(program, bf_pattern_mul_op, read_cursor, mul_pattern_op_length)) != 0) {
+        int nop_offset = read_cursor;
+        int argument = 0;
+
+        // Get the offset for the MUL operation with the pointer shift value.
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+        offset += program->ir[nop_offset].argument;
+        nop_offset++;
+
+        // Get the argument for the MUL operation with the increment value.
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+        argument = program->ir[nop_offset].argument;
+
+        program->ir[write_cursor].opcode = BF_INS_MUL;
+        program->ir[write_cursor].argument = argument;
+        program->ir[write_cursor].offset = offset;
+
+        read_cursor += seq_offset;
+        write_cursor++;
+    }
+
+    // Add a last CLEAR instruction since multiplication loops end up clearing
+    // the cell they're using as an argument for the operation.
+    program->ir[write_cursor].opcode = BF_INS_CLEAR;
+    program->ir[write_cursor].argument = 0;
+    program->ir[write_cursor].offset = 0;
+    write_cursor++;
+
+    // Replace remaining instructions from the old mul loop with NOPs.
+    while (write_cursor < pos + pattern_length) {
+        program->ir[write_cursor].opcode = BF_INS_NOP;
+        program->ir[write_cursor].argument = 0;
+        program->ir[write_cursor].offset = 0;
+        write_cursor++;
+    }
+
+    return pattern_length;
+}
+
+int bf_try_optimization_combine_inc_v(struct bf_program *program, int pos)
+{
+    int i = pos;
+    int accumulator = 0;
+    int end;
+
+    // Figure out how many sequential instructions there are.
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_INC_V) {
+            accumulator++;
+        } else {
+            break;
+        }
+        i++;
+    }
+
+    if (accumulator > 0) {
+        i = pos;
+        end = pos + accumulator;
+
+        // Inject the new add instruction.
+        program->ir[i].opcode = BF_INS_ADD_V;
+        program->ir[i].argument = accumulator;
+
+        i++;
+
+        // Replace the remaining instructions that were previously increments
+        // with NOPs. These will be stripped out later.
+        while (i < end) {
+            program->ir[i].opcode = BF_INS_NOP;
+            program->ir[i].argument = 0;
+            i++;
+        }
+    }
+
+    return accumulator;
+}
+
+int bf_try_optimization_combine_dec_v(struct bf_program *program, int pos)
+{
+    int i = pos;
+    int accumulator = 0;
+    int end;
+
+    // Figure out how many sequential instructions there are.
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_DEC_V) {
+            accumulator++;
+        } else {
+            break;
+        }
+        i++;
+    }
+
+    if (accumulator > 0) {
+        i = pos;
+        end = pos + accumulator;
+
+        // Inject the new add instruction.
+        program->ir[i].opcode = BF_INS_SUB_V;
+        program->ir[i].argument = accumulator;
+
+        i++;
+
+        // Replace the remaining instructions that were previously increments
+        // with NOPs. These will be stripped out later.
+        while (i < end) {
+            program->ir[i].opcode = BF_INS_NOP;
+            program->ir[i].argument = 0;
+            i++;
+        }
+    }
+
+    return accumulator;
+}
+
+int bf_try_optimization_combine_inc_p(struct bf_program *program, int pos)
+{
+    int i = pos;
+    int accumulator = 0;
+    int end;
+
+    // Figure out how many sequential instructions there are.
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_INC_P) {
+            accumulator++;
+        } else {
+            break;
+        }
+        i++;
+    }
+
+    if (accumulator > 0) {
+        i = pos;
+        end = pos + accumulator;
+
+        // Inject the new add instruction.
+        program->ir[i].opcode = BF_INS_ADD_P;
+        program->ir[i].argument = accumulator;
+
+        i++;
+
+        // Replace the remaining instructions that were previously increments
+        // with NOPs. These will be stripped out later.
+        while (i < end) {
+            program->ir[i].opcode = BF_INS_NOP;
+            program->ir[i].argument = 0;
+            i++;
+        }
+    }
+
+    return accumulator;
+}
+
+int bf_try_optimization_combine_dec_p(struct bf_program *program, int pos)
+{
+    int i = pos;
+    int accumulator = 0;
+    int end;
+
+    // Figure out how many sequential instructions there are.
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_DEC_P) {
+            accumulator++;
+        } else {
+            break;
+        }
+        i++;
+    }
+
+    if (accumulator > 0) {
+        i = pos;
+        end = pos + accumulator;
+
+        // Inject the new add instruction.
+        program->ir[i].opcode = BF_INS_SUB_P;
+        program->ir[i].argument = accumulator;
+
+        i++;
+
+        // Replace the remaining instructions that were previously increments
+        // with NOPs. These will be stripped out later.
+        while (i < end) {
+            program->ir[i].opcode = BF_INS_NOP;
+            program->ir[i].argument = 0;
+            i++;
+        }
+    }
+
+    return accumulator;
+}
+
+/*
+ * Replaces increments and decrements with ADDs and SUBs. This is done for two
+ * reasons:
+ *
+ * 1. ADDs / SUBs are easier to check when looking for optimization patterns.
+ * 2. It's not very efficient to increment and decrement in a loop.
+ *
+ * Once all complex optimizations are done, ADDs and SUBs with '1' in them can
+ * be turned back into INC and DEC instructions (this happens in a later pass).
+ */
+bool bf_optimization_pass_1(struct bf_program *program)
+{
+    int i = 0;
+    int offset;
+
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_NOP) {
+            i++;
+            continue;
+        }
+
+        if ((offset = bf_try_optimization_combine_inc_v(program, i))) {
+            i += offset;
+            continue;
+        }
+        if ((offset = bf_try_optimization_combine_dec_v(program, i))) {
+            i += offset;
+            continue;
+        }
+        if ((offset = bf_try_optimization_combine_inc_p(program, i))) {
+            i += offset;
+            continue;
+        }
+        if ((offset = bf_try_optimization_combine_dec_p(program, i))) {
+            i += offset;
+            continue;
+        }
+
+        i++;
+    }
+
+    return true;
+}
+
+/**
+ * Pass 2 applys optimizations for the following constructs:
+ *
+ * - Clear Loops
+ * - Multiplication Loops
+ * - Copy Loops
+ * - Scan Loops (uses memchr)
+ */
+bool bf_optimization_pass_2(struct bf_program *program)
+{
+    int i = 0;
+    int offset;
+
+    while (i < program->size) {
+        if (program->ir[i].opcode == BF_INS_NOP) {
+            i++;
+            continue;
+        }
+
+        // Replaces clear loops with singular clear instructions.
+        if ((offset = bf_try_optimization_clear_loop(program, i))) {
+            i += offset;
+            continue;
+        }
+        // Replaces copy loops with copy instructions.
+        if ((offset = bf_try_optimization_copy_loop(program, i))) {
+            i += offset;
+            continue;
+        }
+        // Replaces multiplication loops with multiply instructions.
+        if ((offset = bf_try_optimization_mul_loop(program, i))) {
+            i += offset;
+            continue;
+        }
+
+        i++;
+    }
+
+    return true;
+}
+
+/**
+ * Replaces occurences of ADD(1) and SUB(1) with INC and DEC respectively. This
+ * pass also removes NOP instructions from the executable IR. Because of this,
+ * the address of branch instructions need to be shifted depending on where
+ * NOPs are removed from.
+ *
+ * Each time a NOP instruction is removed, an offset value is incremented. This
+ * offset is used to correct branch addresses as the IR is shifted towards the
+ * left of the array.
+ *
+ * Optimizations that happen here assume that branches always appear in certain
+ * orders and always have a matching branch 'brace'.
+ */
+bool bf_optimization_pass_3(struct bf_program *program)
+{
+    int i = 0;
+    int offset = 0;
+    int addr = 0;
+
+    while (i < program->size) {
+        enum bf_opcode opcode = program->ir[i].opcode;
+        enum bf_opcode argument = program->ir[i].argument;
+
+        if (opcode == BF_INS_NOP) {
+            offset++;
+            i++;
+            continue;
+        } else if (opcode == BF_INS_BRANCH_Z) {
+            // Save the offset from the current point in time to the branch
+            // instruction that matches this one. Applying that offset later
+            // will ensure the branch has the correct address.
+
+            addr = program->ir[i].argument;
+            program->ir[addr - 1].offset = offset;
+            program->ir[i - offset] = program->ir[i];
+        } else if (opcode == BF_INS_BRANCH_NZ) {
+            // Same as the former, save the offset for the other branch.
+
+            addr = program->ir[i].argument - program->ir[i].offset;
+            program->ir[addr - 1].offset = offset;
+        } else if (opcode == BF_INS_ADD_V && argument == 1) {
+            program->ir[i].opcode = BF_INS_INC_V;
+            program->ir[i].argument = 0;
+        } else if (opcode == BF_INS_SUB_V && argument == 1) {
+            program->ir[i].opcode = BF_INS_DEC_V;
+            program->ir[i].argument = 0;
+        } else if (opcode == BF_INS_ADD_P && argument == 1) {
+            program->ir[i].opcode = BF_INS_INC_P;
+            program->ir[i].argument = 0;
+        } else if (opcode == BF_INS_SUB_P && argument == 1) {
+            program->ir[i].opcode = BF_INS_DEC_P;
+            program->ir[i].argument = 0;
+        }
+
+        // Since optimizations always reduces instruction count, shift the
+        // instruction towards the left of the array by the amount of NOPs
+        // encountered so far.
+        program->ir[i - offset] = program->ir[i];
+
+        i++;
+    }
+
+    // Shrinking usable size doesn't deallocate, but it'll ensure that leftover
+    // IR left behind after optimization isn't executed.
+    program->size -= offset;
+
+    // Correct all branch addresses using the offset stored in the instructions.
+    i = 0;
+    while (i < program->size) {
+        enum bf_opcode opcode = program->ir[i].opcode;
+        if (opcode == BF_INS_BRANCH_NZ) {
+            program->ir[i].argument -= program->ir[i].offset;
+        } else if (opcode == BF_INS_BRANCH_Z) {
+            program->ir[i].argument -= program->ir[i].offset;
+        }
+        i++;
+    }
+
+    return true;
+}
+
+int bf_find_closing_brace(int pos, const char *src)
 {
     char ch;
     int i = pos + 1;
@@ -177,11 +761,13 @@ int bf_find_closing_brace(int pos, char *src)
         i++;
     }
 
-error1:
     return result + offset;
+
+error1:
+    return -1;
 }
 
-int bf_find_opening_brace(int pos, char *src)
+int bf_find_opening_brace(int pos, const char *src)
 {
     char ch;
     int i = pos - 1;
@@ -215,7 +801,7 @@ int bf_find_opening_brace(int pos, char *src)
     return result + offset;
 }
 
-bool bf_is_valid_instruction(char ch)
+bool bf_is_valid_instruction(const char ch)
 {
     switch (ch) {
     case '>':

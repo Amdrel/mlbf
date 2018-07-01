@@ -33,7 +33,28 @@ struct bf_program *bf_compile(char *src);
  * Performs an unoptimized compilation of source. An AST isn't passed in the
  * function arguments since brainfuck is a very simple language.
  */
-struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src);
+bool bf_unoptimized_pass(struct bf_program *program, const char *src);
+
+/**
+ * Combines common operations such as sequential increments into singular ADD /
+ * SUB instructions.
+ *
+ * No INC or DEC instructions will remain after this pass as discriminating
+ * between ADDs SUBs INCs and DECs makes the logic much more complex than it
+ * needs to be. They will be added back later once most optimization is done.
+ */
+bool bf_optimization_pass_1(struct bf_program *program);
+
+/**
+ * Finds common patterns used in brainfuck programs and optimizes them into
+ * ad-hoc instructions to speed up execution.
+ */
+bool bf_optimization_pass_2(struct bf_program *program);
+
+/**
+ * Replaces complex instructions with simpler ones if possible.
+ */
+bool bf_optimization_pass_3(struct bf_program *program);
 
 /**
  * Utility function that finds a matching closing brace in the source code.
@@ -41,7 +62,7 @@ struct bf_program *bf_unoptimized_pass(struct bf_program *program, char *src);
  *
  * A negative return value indicates a matching brace wasn't found.
  */
-int bf_find_closing_brace(int pos, char *src);
+int bf_find_closing_brace(int pos, const char *src);
 
 /**
  * Utility function that finds a matching opening brace in the source code.
@@ -49,11 +70,11 @@ int bf_find_closing_brace(int pos, char *src);
  *
  * A negative return value indicates a matching brace wasn't found.
  */
-int bf_find_opening_brace(int pos, char *src);
+int bf_find_opening_brace(int pos, const char *src);
 
 /**
  * Returns true if the character passed is a valid brainfuck instruction.
  */
-bool bf_is_valid_instruction(char ch);
+bool bf_is_valid_instruction(const char ch);
 
 #endif

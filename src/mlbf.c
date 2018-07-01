@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
         goto error2;
     }
 
-    bf_program_dump(program);
+    // bf_program_dump(program);
 
     // Read brainfuck source code from stdin and initialize the virtual machine.
     // TODO: Add a compilation before this call once the bytecode is defined.
@@ -114,8 +114,8 @@ int main(int argc, char *argv[])
     }
 
     // Start executing brainfuck in the virtual machine. Cleanup resources used
-    // by the virtual machine before quitting and after bf_vm_run returns (program
-    // finished running).
+    // by the virtual machine before quitting and after bf_vm_run returns
+    // (program finished running).
     bf_vm_run(vm);
     bf_vm_destroy(vm);
 

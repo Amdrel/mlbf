@@ -22,38 +22,10 @@
 #define BF_PROGRAM_H
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdlib.h>
 
-#define INSTRUCTION_ALLOC_COUNT 1024
-
-enum bf_opcode {
-    BF_INS_NOP,
-    BF_INS_IN, // ,
-    BF_INS_OUT, // .
-    BF_INS_INC_V, // +
-    BF_INS_DEC_V, // -
-    BF_INS_ADD_V, // (BF_INS_ADD_V, 3) = +++
-    BF_INS_SUB_V, // (BF_INS_SUB_V, 3) = ---
-    BF_INS_INC_P, // >
-    BF_INS_DEC_P, // <
-    BF_INS_ADD_P, // (BF_INS_ADD_P, 3) = >>>
-    BF_INS_SUB_P, // (BF_INS_SUB_P, 3) = <<<
-    BF_INS_BRANCH_Z, // (BF_INS_BRANCH_Z, address) = [
-    BF_INS_BRANCH_NZ, // (BF_INS_BRANCH_NZ, address) = ]
-    BF_INS_JMP,
-    BF_INS_HALT,
-    BF_INS_CLEAR, // [-]
-};
-
-/**
- * Contains an opcode and an optional argument paired with the instruction.
- * This argument is almost always an address or handle.
- */
-struct __attribute__((aligned)) bf_instruction {
-    enum bf_opcode opcode;
-    uint32_t argument;
-};
+#include "instruction.h"
+#include "patterns.h"
 
 /**
  * A dynamic array of compiled program instructions that can be given to the
@@ -84,22 +56,30 @@ bool bf_program_grow(struct bf_program *program);
 /**
  * Appends an instruction to the end of the program.
  */
-bool bf_program_append(struct bf_program *program, struct bf_instruction instruction);
+bool bf_program_append(struct bf_program *program, const struct bf_instruction instruction);
 
 /**
  * Injects IR into an existing program at a specified location. This function
  * will return false if the IR won't fit at the position specified.
  */
-bool bf_program_substitute(struct bf_program *program, struct bf_instruction *ir, int pos, size_t size);
+bool bf_program_substitute(struct bf_program *program, const struct bf_instruction *ir, int pos, size_t size);
+
+/**
+ * Compares a sequence of instruction opcodes at the desired position to a
+ * referenced list of instructions. This function is primarily used during
+ * optimization of existing IR while looking for common optimizable patterns.
+ */
+int bf_program_match_sequence(struct bf_program *program, const struct bf_pattern_rule *rules, int pos, size_t size);
 
 /**
  * Dumps the program bytecode to stdout.
  */
-void bf_program_dump(struct bf_program *program);
+void bf_program_dump(const struct bf_program *program);
 
 /**
- * Returns a string representation of a given instruction.
+ * Returns a string representation of a given instruction. This is used
+ * primarily for debugging purposes (dumping human-readable logs and IR code).
  */
-char *bf_program_map_ins_name(enum bf_opcode opcode);
+const char *bf_program_map_ins_name(enum bf_opcode opcode);
 
 #endif
