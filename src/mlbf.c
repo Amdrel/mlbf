@@ -114,8 +114,8 @@ int main(int argc, char *argv[])
     }
 
     // Start executing brainfuck in the virtual machine. Cleanup resources used
-    // by the virtual machine before quitting and after bf_vm_run returns (program
-    // finished running).
+    // by the virtual machine before quitting and after bf_vm_run returns
+    // (program finished running).
     bf_vm_run(vm);
     bf_vm_destroy(vm);
 

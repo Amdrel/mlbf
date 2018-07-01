@@ -66,13 +66,15 @@ static const struct bf_pattern_rule bf_pattern_clear[] = {
 static const struct bf_pattern_rule bf_pattern_copy[] = {
     { { BF_INS_BRANCH_Z, 0 }, 0 },
     { { BF_INS_SUB_V, 1 }, BF_PATTERN_STRICT },
+    { { BF_INS_ADD_P, 0 }, 0 },
+    { { BF_INS_ADD_V, 1 }, BF_PATTERN_STRICT },
 };
 
 /**
  * Used to match the inner portion of the copy loop.
  */
 static const struct bf_pattern_rule bf_pattern_copy_op[] = {
-    { { BF_INS_ADD_P, 1 }, BF_PATTERN_STRICT },
+    { { BF_INS_ADD_P, 0 }, 0 },
     { { BF_INS_ADD_V, 1 }, BF_PATTERN_STRICT },
 };
 

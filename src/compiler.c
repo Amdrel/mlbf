@@ -198,6 +198,107 @@ int bf_try_optimization_clear_loop(struct bf_program *program, int pos)
     return new_ir_length;
 }
 
+int bf_try_optimization_copy_loop(struct bf_program *program, int pos)
+{
+    const size_t copy_pattern_length = sizeof(bf_pattern_copy) / sizeof(bf_pattern_copy[0]);
+    const size_t copy_pattern_op_length = sizeof(bf_pattern_copy_op) / sizeof(bf_pattern_copy_op[0]);
+
+    int read_cursor = pos;
+    int write_cursor = pos;
+    int pattern_length = 0;
+    int opcount = 0;
+    int offset = 0;
+    int seq_offset = 0;
+
+    // We're -potentially- dealing with a copy loop if this pattern is found.
+    if (!bf_program_match_sequence(program, bf_pattern_copy, read_cursor, copy_pattern_length)) {
+        return 0;
+    }
+    read_cursor += 2; // Jump over the branch and clear sections of the loop.
+
+    // Look for sequences of pointer increments (offset) and additions (copy
+    // operand). NOPs are skipped over when trying to extract the copy result
+    // offset as they're very likely to be present.
+    while ((seq_offset = bf_program_match_sequence(program, bf_pattern_copy_op, read_cursor, copy_pattern_op_length)) != 0) {
+        int nop_offset = read_cursor;
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+
+        opcount++;
+        offset += program->ir[nop_offset].argument;
+        read_cursor += seq_offset;
+    }
+    if (opcount <= 0) {
+        return 0;
+    }
+
+    // Note that the offset is passed to the pattern. The number of pointer
+    // decrements must match the amount of 'operations' in the copy loop. If
+    // this fails that means the copy loop is either an uncommon variation or
+    // it's simply not a copy loop.
+    //
+    // This is where the pointer is reset to the previous value so the next
+    // iterations operate on the same section of memory.
+    const struct bf_pattern_rule end_pattern[] = {
+        { { BF_INS_SUB_P, offset }, BF_PATTERN_STRICT },
+        { { BF_INS_BRANCH_NZ, 0 }, 0 },
+    };
+    const size_t end_pattern_length = sizeof(end_pattern) / sizeof(end_pattern[0]);
+    if ((seq_offset = bf_program_match_sequence(program, end_pattern, read_cursor, end_pattern_length)) == 0) {
+        return 0;
+    }
+
+    pattern_length = (read_cursor + seq_offset) - pos;
+
+    read_cursor = pos + 2;
+    offset = 0;
+    seq_offset = 0;
+
+    // At this point we're looking at a copy loop, start doing destructive
+    // mutations on the IR now that we're confident in our assumptions.
+    //
+    // This bit of code will overwrite the IR as it reads all the copy
+    // operations. Since the resulting optimized code is always smaller, there
+    // shouldn't be an issue with doing this.
+    while ((seq_offset = bf_program_match_sequence(program, bf_pattern_copy_op, read_cursor, copy_pattern_op_length)) != 0) {
+        int nop_offset = read_cursor;
+
+        // Get the offset for the COPY operation with the pointer shift value.
+        // The number of increments for the copy isn't needed since it must
+        // always be 1.
+        while (program->ir[nop_offset].opcode == BF_INS_NOP) {
+            nop_offset++;
+        }
+        offset += program->ir[nop_offset].argument;
+        nop_offset++;
+
+        program->ir[write_cursor].opcode = BF_INS_COPY;
+        program->ir[write_cursor].argument = offset;
+        program->ir[write_cursor].offset = 0;
+
+        read_cursor += seq_offset;
+        write_cursor++;
+    }
+
+    // Add a last CLEAR instruction since copytiplication loops end up clearing
+    // the cell they're using as an argument for the operation.
+    program->ir[write_cursor].opcode = BF_INS_CLEAR;
+    program->ir[write_cursor].argument = 0;
+    program->ir[write_cursor].offset = 0;
+    write_cursor++;
+
+    // Replace remaining instructions from the old copy loop with NOPs.
+    while (write_cursor < pos + pattern_length) {
+        program->ir[write_cursor].opcode = BF_INS_NOP;
+        program->ir[write_cursor].argument = 0;
+        program->ir[write_cursor].offset = 0;
+        write_cursor++;
+    }
+
+    return pattern_length;
+}
+
 /**
  * Peeks at IR and looks for a multiplication loop. A variable amount of MUL
  * instructions and a CLEAR will be added if one is found.
@@ -525,6 +626,11 @@ bool bf_optimization_pass_2(struct bf_program *program)
 
         // Replaces clear loops with singular clear instructions.
         if ((offset = bf_try_optimization_clear_loop(program, i))) {
+            i += offset;
+            continue;
+        }
+        // Replaces copy loops with copy instructions.
+        if ((offset = bf_try_optimization_copy_loop(program, i))) {
             i += offset;
             continue;
         }

@@ -134,12 +134,15 @@ struct bf_result bf_vm_run(struct bf_vm *vm)
             vm->pc++;
             break;
         case BF_INS_COPY:
-            vm->memory[vm->pointer + instr->argument] = vm->memory[vm->pointer];
+            if (vm->memory[vm->pointer] != 0) {
+                pointer_holder = vm->pointer + instr->argument;
+                vm->memory[pointer_holder] = vm->memory[pointer_holder] + vm->memory[vm->pointer];
+            }
             vm->pc++;
             break;
         case BF_INS_MUL:
-            pointer_holder = vm->pointer + instr->offset;
             if (vm->memory[vm->pointer] != 0) {
+                pointer_holder = vm->pointer + instr->offset;
                 vm->memory[pointer_holder] = vm->memory[pointer_holder] + (instr->argument * vm->memory[vm->pointer]);
             }
             vm->pc++;
