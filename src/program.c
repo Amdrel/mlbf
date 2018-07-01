@@ -25,6 +25,7 @@
 #include "utils.h"
 
 #define INSTRUCTION_ALLOC_COUNT 1024
+#define BF_MAX_PROGRAM_SIZE 65536
 
 struct bf_program *bf_program_create()
 {
@@ -66,6 +67,19 @@ bool bf_program_grow(struct bf_program *program)
     size_t new_capacity;
 
     new_capacity = program->capacity + INSTRUCTION_ALLOC_COUNT;
+
+    // Prevent the capacity from going over 65536 bytes in size. This limitation
+    // is imposed so branch instructions can use smaller 16-bit addresses. Most
+    // brainfuck programs, including stress tests such as mandlebrot.b and
+    // hanoi.b, fit in this space within a great margin.
+    if (new_capacity > BF_MAX_PROGRAM_SIZE) {
+        if (program->capacity < BF_MAX_PROGRAM_SIZE) {
+            new_capacity = BF_MAX_PROGRAM_SIZE;
+        } else {
+            goto error1;
+        }
+    }
+
     resized_ir = realloc(program->ir, sizeof(struct bf_instruction) * new_capacity);
     if (!resized_ir) {
         goto error1;

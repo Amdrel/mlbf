@@ -67,46 +67,58 @@ bool bf_unoptimized_pass(struct bf_program *program, const char *src)
     while ((ch = src[i]) != '\0') {
         switch (ch) {
         case '>':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_INC_P,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_INC_P,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '<':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_DEC_P,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_DEC_P,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '+':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_INC_V,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_INC_V,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '-':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_DEC_V,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_DEC_V,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '.':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_OUT,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_OUT,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case ',':
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_IN,
-                    .argument = 0,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_IN,
+                        .argument = 0,
+                    })) {
+                goto error1;
+            }
             break;
         case '[':
             address = bf_find_closing_brace(i, src);
@@ -114,11 +126,13 @@ bool bf_unoptimized_pass(struct bf_program *program, const char *src)
                 goto error1;
             }
 
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_BRANCH_Z,
-                    .argument = address + 1 - offset,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_BRANCH_Z,
+                        .argument = address + 1 - offset,
+                    })) {
+                goto error1;
+            }
 
             break;
         case ']':
@@ -127,11 +141,13 @@ bool bf_unoptimized_pass(struct bf_program *program, const char *src)
                 goto error1;
             }
 
-            bf_program_append(program,
-                (struct bf_instruction){
-                    .opcode = BF_INS_BRANCH_NZ,
-                    .argument = address + 1 - offset,
-                });
+            if (!bf_program_append(program,
+                    (struct bf_instruction){
+                        .opcode = BF_INS_BRANCH_NZ,
+                        .argument = address + 1 - offset,
+                    })) {
+                goto error1;
+            }
             break;
         default:
             offset++;
@@ -143,11 +159,13 @@ bool bf_unoptimized_pass(struct bf_program *program, const char *src)
 
     // Ensure there's a halt at the end so the interpreter stops when execution
     // reaches the end of the program.
-    bf_program_append(program,
-        (struct bf_instruction){
-            .opcode = BF_INS_HALT,
-            .argument = 0,
-        });
+    if (!bf_program_append(program,
+            (struct bf_instruction){
+                .opcode = BF_INS_HALT,
+                .argument = 0,
+            })) {
+        goto error1;
+    }
 
     return true;
 
@@ -523,7 +541,14 @@ bool bf_optimization_pass_2(struct bf_program *program)
 }
 
 /**
- * Replaces occurences of ADD(1) and SUB(1) with INC and DEC respectively.
+ * Replaces occurences of ADD(1) and SUB(1) with INC and DEC respectively. This
+ * pass also removes NOP instructions from the executable IR. Because of this,
+ * the address of branch instructions need to be shifted depending on where
+ * NOPs are removed from.
+ *
+ * Each time a NOP instruction is removed, an offset value is incremented. This
+ * offset is used to correct branch addresses as the IR is shifted towards the
+ * left of the array.
  *
  * Optimizations that happen here assume that branches always appear in certain
  * orders and always have a matching branch 'brace'.
@@ -540,49 +565,56 @@ bool bf_optimization_pass_3(struct bf_program *program)
 
         if (opcode == BF_INS_NOP) {
             offset++;
+            i++;
+            continue;
         } else if (opcode == BF_INS_BRANCH_Z) {
+            // Save the offset from the current point in time to the branch
+            // instruction that matches this one. Applying that offset later
+            // will ensure the branch has the correct address.
+
             addr = program->ir[i].argument;
             program->ir[addr - 1].offset = offset;
             program->ir[i - offset] = program->ir[i];
         } else if (opcode == BF_INS_BRANCH_NZ) {
+            // Same as the former, save the offset for the other branch.
+
             addr = program->ir[i].argument - program->ir[i].offset;
             program->ir[addr - 1].offset = offset;
-            program->ir[i - offset] = program->ir[i];
         } else if (opcode == BF_INS_ADD_V && argument == 1) {
             program->ir[i].opcode = BF_INS_INC_V;
             program->ir[i].argument = 0;
-            program->ir[i - offset] = program->ir[i];
         } else if (opcode == BF_INS_SUB_V && argument == 1) {
             program->ir[i].opcode = BF_INS_DEC_V;
             program->ir[i].argument = 0;
-            program->ir[i - offset] = program->ir[i];
         } else if (opcode == BF_INS_ADD_P && argument == 1) {
             program->ir[i].opcode = BF_INS_INC_P;
             program->ir[i].argument = 0;
-            program->ir[i - offset] = program->ir[i];
         } else if (opcode == BF_INS_SUB_P && argument == 1) {
             program->ir[i].opcode = BF_INS_DEC_P;
             program->ir[i].argument = 0;
-            program->ir[i - offset] = program->ir[i];
-        } else {
-            program->ir[i - offset] = program->ir[i];
         }
+
+        // Since optimizations always reduces instruction count, shift the
+        // instruction towards the left of the array by the amount of NOPs
+        // encountered so far.
+        program->ir[i - offset] = program->ir[i];
 
         i++;
     }
 
+    // Shrinking usable size doesn't deallocate, but it'll ensure that leftover
+    // IR left behind after optimization isn't executed.
     program->size -= offset;
-    i = 0;
 
+    // Correct all branch addresses using the offset stored in the instructions.
+    i = 0;
     while (i < program->size) {
         enum bf_opcode opcode = program->ir[i].opcode;
-
         if (opcode == BF_INS_BRANCH_NZ) {
             program->ir[i].argument -= program->ir[i].offset;
         } else if (opcode == BF_INS_BRANCH_Z) {
             program->ir[i].argument -= program->ir[i].offset;
         }
-
         i++;
     }
 
