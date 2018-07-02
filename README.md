@@ -22,6 +22,12 @@ issue trackers.
 
 ## Changelog
 
+### Jul 02, 2018 (1.0.0)
+
+* Command-line arguments are now supported.
+* Added dump flag to output brainfuck IR to stdout.
+* Added output flag used to generate a C program from brainfuck IR.
+
 ### Jul 01, 2018
 
 * Added brainfuck bytecode to C transpiler (4-6x performance increase on
