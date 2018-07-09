@@ -22,7 +22,6 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "compiler.h"
@@ -96,7 +95,7 @@ int main(int argc, char *argv[])
             dump_flag = 1;
             break;
         case 'o':
-            output_path = strdup(optarg);
+            output_path = bf_strdup(optarg);
             break;
         case '?':
             if (optopt == 'o') {
@@ -137,7 +136,7 @@ int main(int argc, char *argv[])
     }
 
     // Read and compile the brainfuck source code.
-    src = read_file(fp, alloc_size);
+    src = bf_read_file(fp, alloc_size);
     if (src == NULL) {
         fprintf(stderr, "Unable to read source code.\n");
         goto error1;

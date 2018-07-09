@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Allocation size used when reading brainfuck from stdin.
 #define STDIN_ALLOC_SIZE 1024
@@ -38,10 +39,25 @@ static inline bool bf_utils_check_flag(uint32_t flags, uint32_t flag)
 }
 
 /**
+ * Portable implementation of strdup.
+ */
+static inline char *bf_strdup(char *src)
+{
+    char *str;
+    size_t len = strlen(src) + 1;
+
+    str = (char *)malloc(len);
+    if (str) {
+        memcpy(str, src, len);
+    }
+    return str;
+}
+
+/**
  * Reads a file and returns a string containing the contents. A size must be
  * specified which allows the caller to control allocation size.
  */
-static inline char *read_file(FILE *fp, size_t size)
+static inline char *bf_read_file(FILE *fp, size_t size)
 {
     char *str; // Will contain file contents when the function completes.
     int ch; // Holder for last character read from the file.
